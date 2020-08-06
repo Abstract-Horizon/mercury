@@ -1,0 +1,2 @@
+protocol=maildir; type=store; class=org.abstracthorizon.mercury.maildir.uid.UIDMaildirStore; vendor=Creative Sphere Limited;
+protocol=maildirsimple; type=store; class=org.abstracthorizon.mercury.maildir.MaildirStore; vendor=Creative Sphere Limited;

@@ -1,0 +1,77 @@
+<html>
+  <head>
+    <title>Mercury Admin console</title>
+    <style type="text/css" media="all">
+      @import url("./style.css");
+    </style>
+    <meta charset="UTF-8">
+  </head>
+  <body bgcolor="white"> 
+    <div id="banner">
+      <div id="bannerLeftLine"></div>
+      <a href="http://www.abstracthorizon.org">
+        <img src="./images/ah-logo-512-solid.png" alt="Abstract Horizon" />
+      </a>
+      <div id="bannerRightLine"></div>
+    </div>
+
+    <#if message != "">
+      <p id="message">${message}</p>
+    </#if>
+
+    <h1>Mercury Admin Console</h1>
+	
+	<h2>Domains</h2>
+	
+	<p>Main domain is <b>${main_domain}</b></p>
+
+	<table class="wide">
+	<#assign odd_even="odd">
+	<#list domains as domain>
+	<tr class="${odd_even}"><td>${domain}</td>
+	<td class="right-button-cell">
+	  <form action="/delete_domain" method="post"><input name="domain" value="${domain}" type="hidden"><input type="submit" value="Remove Domain"></form>
+	</td>
+	</tr>
+	<#if odd_even == "odd"><#assign odd_even = "even"><#else><#assign odd_even = "odd"></#if>
+	</#list>
+	</table>
+
+	<form action="/add_domain" method="post">
+	<table class="wide quiet">
+	<tr><td style="width: 50%">Domain: <input name="domain" style="width:70%"/></td><td><input type="submit" value="Add Domain"/></td>
+	</tr>
+	</table>
+	</form>
+
+	<h2>Mailboxes</h2>
+	
+	<table class="wide">
+	<#assign odd_even="odd">
+	<#list mailboxes as mailbox>
+	<tr class="${odd_even}"><td style="width:90%">${mailbox}</td>
+	<td class="right-button-cell"><form action="/delete_mailbox" method="post"><input name="mailbox" value="${mailbox}" type="hidden"><input type="submit" value="Remove Mailbox"></form></td>
+	<td class="right-button-cell"><form action="/mailbox" method="post"><input name="mailbox" value="${mailbox}" type="hidden"><input type="submit" value="Manage Mailbox"></form></td>
+	</tr>
+	<#if odd_even == "odd"><#assign odd_even = "even"><#else><#assign odd_even = "odd"></#if>
+	</#list>
+	</table>
+
+	<form action="/add_mailbox" method="post">
+	<table class="wide quiet">
+	<tr>
+	  <td style="width: 20%; margin-left: 20px;">Mailbox: <input style="width:70%" name="mailbox"/></td>
+	  <td style="width: 20%; margin-left: 20px;">Domain: <input style="width:70%" name="domain"/></td>
+	  <td style="width: 20%; margin-left: 20px;">Password: <input style="width:70%" name="password" type="password"/></td>
+	  <td style="width: 20%; margin-left: 20px;">Password: <input style="width:70%" name="password2" type="password"/></td>
+	  <td><input type="submit" value="Add Mailbox"/></td>
+	</tr>
+	</table>
+	</form>
+
+	<form action="/logout" method="post">
+	<table class="wide quiet"><tr><td><input type="submit" value="Logout"/></td></tr></table>
+	</form>
+
+  </body>
+</html>

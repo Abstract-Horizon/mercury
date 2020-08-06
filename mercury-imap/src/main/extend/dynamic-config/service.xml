@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+
+<beans>
+  <depends-on>org.abstracthorizon.danube:danube:1.1</depends-on>
+  <depends-on>org.abstracthorizon.mercury:common:2.1</depends-on>
+
+</beans>

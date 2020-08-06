@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<document>
+
+  <properties>
+    <title>Mercury Documentation - Overview</title>
+  </properties>
+
+  <head>
+  </head>
+
+  <body>
+    <section name="Overview">
+      <p>
+        Currently Mercury project is defined by inbound <a href="smtp.html">SMTP server</a> that is responsible
+        for accepting SMTP feed form the internet, <a href="imap.html">IMAP server</a> for
+        accessing stored e-mails and <a href="maildir.html">Maildir</a>.
+      </p>
+      <p>
+        Beside these elements, Mercury supplies <a href="common.html">common storage management</a>
+        and simple <a href="spam-detection">SPAM detection</a> modules.
+      </p>
+
+      <subsection name="Implementation">
+        <p>
+          All Mercury projects deliver simple to configure POJO objects that can be easily orcestrated
+          through existing Ioc containers (<a href="links.html#spring">Spring framework</a> for instance)
+          or as embedded, simple Java code invoked components.
+        </p>
+        <p>
+          Mercury servers are implemented using <a href="http://danube.abstracthorizon.org">Danube</a>
+          framework. It allows logical, chained processing of input requests. Both
+          <a href="smtp.html">SMTP</a> and <a href="imap.html">IMAP</a> share similar structure where
+          connection is accepted (through <a href="http://danube.abstracthorizon.org">Danube</a>
+          implementation of socket server) and then appropriate command factory is employed to
+          process the requst commands from the client.
+        </p>
+      </subsection>
+
+      <subsection name="Extend">
+        <p>
+          One of the advantages of packaged Mercury is that it is coming as fully functional,
+          stand-alone <a href="http://extend.abstracthorizon.org">Extend</a> container with Mercury
+          modules. See <a href="quickstart.html">quickstart</a> guide how to easily start Mercury
+          suite.
+        </p>
+      </subsection>
+    </section>
+  </body>
+</document>

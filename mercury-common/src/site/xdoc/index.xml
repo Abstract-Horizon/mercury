@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<document>
+
+  <properties>
+    <author email="daniel.sendula@abstracthorizon.org">Daniel Sendula</author>
+    <title>Mercury (Common)</title>
+  </properties>
+
+  <meta name="keyword" content="danube java"/>
+
+  <body>
+    <section name="Mercury (Common)">
+      <p>
+        This project contains shared code for different Mercury sub-projects.
+      </p>
+    </section>
+  </body>
+
+</document>

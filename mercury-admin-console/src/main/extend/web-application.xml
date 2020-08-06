@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+
+<!--
+ * Copyright (c) 2005-2006 Creative Sphere Limited.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the LGPL licence
+ * which accompanies this distribution, and is available at
+ * http://www.gnu.org/copyleft/lesser.html
+ *
+ * Contributors:
+ *
+ *   Creative Sphere - initial API and implementation
+-->
+<beans default-lazy-init="false">
+  <depends-on>org.abstracthorizon.danube.webdav:danube-webdav-spring:1.1</depends-on>
+  <depends-on>org.abstracthorizon.danube:danube-auth:1.1</depends-on>
+  <depends-on>org.abstracthorizon.extend:extend-auth:1.2:sar.xml</depends-on>
+  <depends-on>org.abstracthorizon.mercury:mercury-admin-console:2.1</depends-on>
+  <depends-on>:mercury-mail-suite::sar.xml</depends-on>
+
+  <!-- this same context path would be picked from the module's name -->
+  <context-path>/</context-path>
+
+  <!--
+    Make following definition available if you want to have simple
+    bean console anyone can access
+    Note: don't forget to comment out next alias definition
+  -->
+  <!--  alias name="web-application-main" alias="web-application" / -->
+
+  <!--
+    Make following definition available if you want to have secure access
+    to bean console through SSL + authentication from keystore provided.
+    Note: don't forget to comment out previous alias definition
+  -->
+  <alias name="web-application-secure" alias="web-application" />
+
+  <!--
+    This is main entry point for Danube web applications. A bean with 'web-application' name of
+    ConnectionHandler class must exist. This bean ensures that it is accessed through HTTPS. If
+    you try to access it through HTTP it redirects to port 8443 as HTTPS.
+
+    Also, embedded in it is JAASAuthenticator that authenticates web application based on
+    login module with 'testcontext' name (defined at the end of this file). It checks only for
+    username and password - no extra credentials are needed.
+  -->
+  <bean name="web-application-secure" class="org.abstracthorizon.danube.http.util.EnsureHTTPS">
+    <property name="handler">
+      <bean class="org.abstracthorizon.danube.http.auth.JAASAuthenticator">
+        <property name="loginContextName" value="mercury-admin-console-context"/>
+        <property name="handler" ref="web-application-main"/>
+      </bean>
+    </property>
+    <property name="port" value="8443"/>
+  </bean>
+
+  <!--
+    This bean defines beans application context.
+    It references to two components: File component that accepts only file named "style.css" and
+    MVC controller defined at the root of this application ("/") and "/display" path.
+    (this is an example of same component being defined at different paths)
+  -->
+  <bean name="web-application-main" class="org.abstracthorizon.danube.http.HTTPContext">
+    <property name="components">
+      <list>
+        <bean class="org.abstracthorizon.danube.http.matcher.Pattern">
+          <property name="pattern" value="(/style\.css)|(/images/.*)|(/favicon\.ico)"/>
+          <property name="connectionHandler" ref="beans-files"/>
+          <property name="matchAsComponentPath" value="false"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="logout"/>
+          <property name="connectionHandler" ref="logout.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/add_domain"/>
+          <property name="connectionHandler" ref="add_domain.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/delete_domain"/>
+          <property name="connectionHandler" ref="delete_domain.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/add_mailbox"/>
+          <property name="connectionHandler" ref="add_mailbox.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/delete_mailbox"/>
+          <property name="connectionHandler" ref="delete_mailbox.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/mailbox"/>
+          <property name="connectionHandler" ref="mailbox.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/password"/>
+          <property name="connectionHandler" ref="change_mailbox_password.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/add_alias"/>
+          <property name="connectionHandler" ref="add_alias.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/delete_alias"/>
+          <property name="connectionHandler" ref="delete_alias.mvc"/>
+        </bean>
+         <bean class="org.abstracthorizon.danube.http.matcher.Prefix">
+          <property name="prefix" value="/"/>
+          <property name="connectionHandler" ref="index.mvc"/>
+        </bean>
+      </list>
+    </property>
+  </bean>
+
+  <bean name="logout.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="logout.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="index.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="index.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="mailbox.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="mailbox.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="add_domain.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="add_domain.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="delete_domain.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="delete_domain.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="add_mailbox.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="add_mailbox.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="delete_mailbox.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="delete_mailbox.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="change_mailbox_password.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="change_mailbox_password.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="add_alias.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="add_alias.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <bean name="delete_alias.mvc" class="org.abstracthorizon.danube.http.HTTPMVCConnectionHandler">
+    <property name="controller" ref="delete_alias.controller"/>
+    <property name="view" ref="freemarkerViewAdapter"/>
+  </bean>
+
+  <!-- Controllers -->
+
+  <bean name="logout.controller" class="org.abstracthorizon.mercury.adminconsole.LogoutController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="indexController" ref="index.controller"/>
+  </bean>
+
+  <bean name="index.controller" class="org.abstracthorizon.mercury.adminconsole.IndexController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="mailboxController" ref="mailbox.controller"/>
+  </bean>
+
+  <bean name="delete_domain.controller" class="org.abstracthorizon.mercury.adminconsole.DeleteDomainController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="indexController" ref="index.controller" />
+  </bean>
+
+  <bean name="add_domain.controller" class="org.abstracthorizon.mercury.adminconsole.AddDomainController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="indexController" ref="index.controller" />
+  </bean>
+
+  <bean name="mailbox.controller" class="org.abstracthorizon.mercury.adminconsole.MailboxController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="indexController" ref="index.controller" />
+  </bean>
+
+  <bean name="add_mailbox.controller" class="org.abstracthorizon.mercury.adminconsole.AddMailboxController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="indexController" ref="index.controller" />
+  </bean>
+
+  <bean name="change_mailbox_password.controller" class="org.abstracthorizon.mercury.adminconsole.ChangeMailboxPasswordController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="mailboxController" ref="mailbox.controller" />
+  </bean>
+
+  <bean name="delete_mailbox.controller" class="org.abstracthorizon.mercury.adminconsole.DeleteMailboxController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="indexController" ref="index.controller" />
+  </bean>
+
+  <bean name="add_alias.controller" class="org.abstracthorizon.mercury.adminconsole.AddAliasController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="mailboxController" ref="mailbox.controller" />
+    <property name="indexController" ref="index.controller" />
+  </bean>
+
+  <bean name="delete_alias.controller" class="org.abstracthorizon.mercury.adminconsole.DeleteAliasController">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+    <property name="mailboxController" ref="mailbox.controller" />
+    <property name="indexController" ref="index.controller" />
+  </bean>
+
+  <bean name="beans-files" class="org.abstracthorizon.danube.webdav.spring.SpringResourceWebDAVConnectionHandler">
+    <property name="resourcePath" value="pages"/>
+    <property name="readOnly" value="true"/>
+  </bean>
+
+  <bean id="freemarkerViewAdapter" class="org.abstracthorizon.danube.freemarker.FreeMarkerViewAdapter" init-method="init">
+    <property name="templatesURL" value="pages"/>
+    <property name="suffix" value="page"/>
+  </bean>
+
+  <bean name="URLEditor" class="org.springframework.beans.factory.config.MethodInvokingFactoryBean" lazy-init="false">
+    <property name="staticMethod" value="java.beans.PropertyEditorManager.registerEditor"></property>
+    <property name="arguments">
+      <list>
+        <value>java.net.URL</value>
+        <value>org.springframework.beans.propertyeditors.URLEditor</value>
+      </list>
+    </property>
+  </bean>
+
+  <bean name="mercury-admin-console-context" class="org.abstracthorizon.danube.auth.jaas.keystore.KeyStoreModuleService">
+    <service />
+    <property name="loginContext" value="mercury-admin-console-context"/>
+    <property name="keyStoreFile" value="config/accounts.keystore"/>
+    <property name="keyStorePassword" value="password1234"/>
+    <property name="configuration" ref="javax.security.auth.login"/>
+  </bean>
+</beans>

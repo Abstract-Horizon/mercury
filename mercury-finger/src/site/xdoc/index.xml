@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<document>
+
+  <properties>
+    <author email="daniel.sendula@abstracthorizon.org">Daniel Sendula</author>
+    <title>Mercury (Finger)</title>
+  </properties>
+
+  <meta name="keyword" content="danube java"/>
+
+  <body>
+    <section name="Mercury (Finger)">
+      <p>
+        This is simple implementation of Finger as it is used by some ISP providers for SMTP feed to be triggered.
+      </p>
+    </section>
+  </body>
+
+</document>

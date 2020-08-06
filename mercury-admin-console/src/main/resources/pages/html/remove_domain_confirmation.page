@@ -1,0 +1,30 @@
+<html>
+  <head>
+    <title>Mercury Admin console - Remove Domain</title>
+    <style type="text/css" media="all">
+      @import url("./style.css");
+    </style>
+    <meta charset="UTF-8">
+  </head>
+  <body bgcolor="white">
+    <div id="banner">
+      <div id="bannerLeftLine"></div>
+      <a href="http://www.abstracthorizon.org">
+        <img src="./images/ah-logo-512-solid.png" alt="Abstract Horizon" />
+      </a>
+      <div id="bannerRightLine"></div>
+    </div>
+
+    <h1>Mercury Admin Console - Remove Domain</h1>
+
+	<p>Do you want to remove domain <b>"${domain}"</b>?</p>
+
+	<table class="wide quiet">
+    <tr>
+      <td><form action="/" method="post"><input type="submit" value="Cancel Removing Domain"></form></td>
+      <td><form action="/delete_domain" method="post"><input name="domain" value="${domain}" type="hidden"><input name="confirmed" value="y" type="hidden"><input type="submit" value="Confirm Removing Domain"></form></td>
+	</tr>
+	</table>
+
+  </body>
+</html>

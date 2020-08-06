@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<document>
+
+  <properties>
+    <author email="daniel.sendula@abstracthorizon.org">Daniel Sendula</author>
+    <title>Mercury (IMAP)</title>
+  </properties>
+
+  <meta name="keyword" content="danube java"/>
+
+  <body>
+    <section name="Mercury (IMAP)">
+      <p>
+        Implementation of IMAP 4rev1 mail server.
+      </p>
+    </section>
+  </body>
+
+</document>

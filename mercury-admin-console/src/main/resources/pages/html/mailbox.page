@@ -1,0 +1,80 @@
+<html>
+  <head>
+    <title>Mercury Admin console - Mailbox</title>
+    <style type="text/css" media="all">
+      @import url("./style.css");
+    </style>
+    <meta charset="UTF-8">
+  </head>
+  <body bgcolor="white">
+    <div id="banner">
+      <div id="bannerLeftLine"></div>
+      <a href="http://www.abstracthorizon.org">
+        <img src="./images/ah-logo-512-solid.png" alt="Abstract Horizon" />
+      </a>
+      <div id="bannerRightLine"></div>
+    </div>
+
+    <#if message != "">
+      <p id="message">${message}</p>
+    </#if>
+
+    <h1>Mercury Admin Console - Mailbox <b>${mailbox}@${domain}</b></h1>
+
+    <h2>Change password</h2>
+    <form action="/password" method="post">
+    <input name="mailbox" value="${mailbox}" type="hidden">
+    <input name="domain" value="${domain}" type="hidden">
+    <table class="wide quiet">
+    <tr>
+      <#if isAdmin>
+        <td style="width: 30%; margin-left: 20px;">New Password: <input style="width:100%" name="password" type="password"/></td>
+      <#else>
+        <td style="width: 30%; margin-left: 20px;">Old Password: <input style="width:100%" name="oldpassword" type="password"/></td>
+        <td style="width: 30%; margin-left: 20px;">New Password: <input style="width:100%" name="password" type="password"/></td>
+        <td style="width: 30%; margin-left: 20px;">New Password: <input style="width:100%" name="password2" type="password"/></td>
+      </#if>
+      <td><input type="submit" value="Change Password"/></td>
+    </tr>
+    </table>
+    </form>
+
+
+    <h2>Aliases</h2>
+
+    <table class="wide">
+    <#assign odd_even="odd">
+    <#list aliases as alias>
+    <tr class="${odd_even}">
+      <td>${alias}</td>
+      <td class="right-button-cell">
+        <form action="/delete_alias" method="post"><input name="mailbox" value="${mailbox}" type="hidden"><input name="domain" value="${domain}" type="hidden"><input name="alias" value="${alias}" type="hidden"><input type="submit" value="Remove Alias"></form>
+      </td>
+    </tr>
+    <#if odd_even == "odd"><#assign odd_even = "even"><#else><#assign odd_even = "odd"></#if>
+    </#list>
+    </table>
+
+    <form action="/add_alias" method="post">
+    <input name="mailbox" value="${mailbox}" type="hidden">
+    <input name="domain" value="${domain}" type="hidden">
+
+    <table class="wide quiet">
+    <tr>
+      <td style="width: 30%; margin-left: 20px;">Alias (in &quot;name@domain&quot; format): <input style="width:70%" name="alias"/></td>
+      <td><input type="submit" value="Add Alias"/></td>
+    </tr>
+    </table>
+    </form>
+
+    <form action="/logout" method="post">
+    <table class="wide quiet"><tr><td><input type="submit" value="Logout"/></td></tr></table>
+    </form>
+
+    <#if isAdmin>
+      <form action="/" method="post">
+      <table class="wide quiet"><tr><td><input type="submit" value="Back"/></td></tr></table>
+      </form>
+    </#if>
+  </body>
+</html>

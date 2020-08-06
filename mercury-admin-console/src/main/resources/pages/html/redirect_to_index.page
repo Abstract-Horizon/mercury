@@ -1,0 +1,9 @@
+<html>
+    <head>
+        <title>Mercury Admin console</title>
+        <meta http-equiv="refresh" content="0;url=/">
+    </head>
+    <body bgcolor="white"> 
+        Redirecting to ${connection.contextPath}
+    </body>
+</html>

@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="
+         http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd
+         http://www.springframework.org/schema/util  http://www.springframework.org/schema/util/spring-util-2.0.xsd">
+
+  <depends-on>org.abstracthorizon.mercury:mercury-smtp:2.1</depends-on>
+  <depends-on>org.abstracthorizon.mercury:mercury-imap:2.1</depends-on>
+  <depends-on>org.abstracthorizon.extend:extend-auth:1.2</depends-on>
+  <depends-on>org.abstracthorizon.mercury:mercury-common:2.1</depends-on>
+  <depends-on>org.abstracthorizon.mercury:mercury-accounts-spring:2.1</depends-on>
+  <depends-on>org.abstracthorizon.mercury:mercury-spam:2.1</depends-on>
+  <depends-on>org.abstracthorizon.mercury:mercury-maildir:2.1</depends-on>
+  <!-- <depends-on>org.abstracthorizon.mercury:mercury-admin-console:2.1:dar.xml</depends-on> -->
+
+  <depends-on>mercury-data</depends-on>
+  <depends-on>mercury-logs</depends-on>
+
+
+  <bean name="mercury.StorageManager" class="org.abstracthorizon.mercury.accounts.spring.MaildirKeystoreStorageManager"
+        init-method="init" autowire="false">
+    <property name="propertiesFile" value="config/accounts.properties"/>
+    <property name="keyStoreFile" value="config/accounts.keystore"/>
+    <property name="mailboxesPath" value="mailboxes"/>
+    <property name="keyStorePassword" value="password1234"/>
+  </bean>
+
+<!-- Inbound SMTP Service part -->
+
+  <bean name="mercury.smtp.service" class="org.abstracthorizon.danube.service.server.MultiThreadServerSocketService">
+    <service />
+
+    <property name="name" value="smtp"/>
+    <property name="port" value="8025"/>
+    <property name="connectionHandler" ref="mercury.smtp.LoggingConnectionHandler"/>
+    <property name="serverSocketTimeout" value="1000"/>
+    <property name="newSocketTimeout" value="60000"/>
+    <!-- property name="connectionHandler" ref="mercury.smtp.ConnectionHandler"/-->
+  </bean>
+
+  <bean name="mercury.smtp.LoggingConnectionHandler" class="org.abstracthorizon.danube.support.logging.LoggingConnectionHandler">
+    <property name="logging" value="false"/>
+    <!-- property name="logsPath" value="server-data:/mercury/log"/ -->
+    <property name="logsPath" value="logs"/>
+    <property name="addressPattern" value="-"/> <!-- For nothing or .* for all -->
+    <property name="logFileNamePattern" value="smtp_%D-%T-%a-%p.log"/>
+    <property name="directional" value="true"/>
+    <property name="connectionHandler" ref="mercury.smtp.ConnectionHandler"/>
+  </bean>
+
+  <bean name="mercury.smtp.ConnectionHandler" class="org.abstracthorizon.mercury.smtp.SMTPConnectionHandler">
+    <property name="connectionHandler" ref="mercury.smtp.AccessLoggerConnectionHandler"/>
+    <property name="storageManager" ref="mercury.StorageManager"/>
+  </bean>
+
+  <bean name="mercury.smtp.AccessLoggerConnectionHandler" class="org.abstracthorizon.mercury.smtp.logging.SMTPSPAMAccessLogConnectionHandler">
+    <property name="logFileRotator">
+      <bean class="org.abstracthorizon.danube.support.logging.util.LogFileRotatorImpl">
+        <!-- property name="logFile" value="server-data:/mercury/log/smtp_access.log"/ -->
+        <property name="logDirectory" value="access"/>
+        <property name="logFileName" value="smtp_access.log"/>
+        <!-- property name="bufferLen" value="10240"/ -->
+        <property name="bufferLen" value="100"/>
+        <property name="numberOfGenerations" value="-1"/> <!-- Unlimited -->
+        <property name="maxAge" value="86400000"/> <!-- One day 1000*60*60*24 -->
+        <property name="maxSize" value="100000000"/> <!-- Slightlly less then a 100Mb -->
+      </bean>
+    </property>
+    <!-- property name="logPattern" value="%a %h %A %p %t %D %T %B %E %R %H %S"/ -->
+    <property name="logPattern" value="%y %S %R %h localhost SMTP - %r %b"/>
+    <!-- <property name="connectionHandler" ref="mercury.smtp.SMTPQuietFilterCommandFactory"/> -->
+    <property name="connectionHandler" ref="mercury.smtp.SMTPFilterCommandFactory"/>
+  </bean>
+
+  <bean name="mercury.smtp.SMTPQuietFilterCommandFactory" class="org.abstracthorizon.mercury.smtp.filter.quiet.SMTPQuietFilterCommandFactory" init-method="init">
+    <property name="inactivityTimeout" value="1800000"/> <!--  1/2 of an hour for valid recipient to be delivered -->
+    <property name="maxFlushSpeed" value="10240"/> <!--  10kbs per second for (large) SPAM content -->
+    <property name="filters">
+      <list>
+        <bean class="org.abstracthorizon.mercury.filter.spam.SimpleSubjectFilter"/>
+        <bean class="org.abstracthorizon.mercury.filter.spam.FinalSPAMFilter"/>
+        <bean class="org.abstracthorizon.mercury.smtp.filter.quiet.QuietFindStorageFilter"/>
+        <bean class="org.abstracthorizon.mercury.filter.spam.DestinationMailboxFilter">
+          <property name="spamSlowDown" value="100"/> <!--  Only ten recipients per minute for SPAM -->
+        </bean>
+      </list>
+    </property>
+  </bean>
+
+
+  <bean name="mercury.smtp.SMTPFilterCommandFactory" class="org.abstracthorizon.mercury.smtp.filter.SMTPFilterCommandFactory" init-method="init">
+    <property name="inactivityTimeout" value="1800000"/>
+    <property name="filters">
+      <list>
+        <bean class="org.abstracthorizon.mercury.filter.spam.SimpleSubjectFilter"/>
+        <bean class="org.abstracthorizon.mercury.filter.spam.FinalSPAMFilter"/>
+        <bean class="org.abstracthorizon.mercury.smtp.filter.FindStorageFilter"/>
+        <bean class="org.abstracthorizon.mercury.filter.spam.DestinationMailboxFilter">
+          <property name="spamSlowDown" value="100"/>
+        </bean>
+      </list>
+    </property>
+  </bean>
+  
+<!-- Outbound SMTP Service part -->
+
+  <bean name="mercury.smtp.send.service" class="org.abstracthorizon.danube.service.server.MultiThreadServerSocketService">
+    <service />
+
+    <property name="name" value="smtp"/>
+    <property name="port" value="8466"/>
+    <property name="connectionHandler" ref="mercury.smtp.send.LoggingConnectionHandler"/>
+    <property name="serverSocketTimeout" value="1000"/>
+    <property name="newSocketTimeout" value="60000"/>
+    <!-- property name="connectionHandler" ref="mercury.smtp.ConnectionHandler"/-->
+  </bean>
+
+  <bean name="mercury.smtp.send.LoggingConnectionHandler" class="org.abstracthorizon.danube.support.logging.LoggingConnectionHandler">
+    <property name="logging" value="false"/>
+    <!-- property name="logsPath" value="server-data:/mercury/log"/ -->
+    <property name="logsPath" value="logs"/>
+    <property name="addressPattern" value="-"/> <!-- For nothing or .* for all -->
+    <property name="logFileNamePattern" value="send_%D-%T-%a-%p.log"/>
+    <property name="directional" value="true"/>
+    <property name="connectionHandler" ref="mercury.smtp.send.ConnectionHandler"/>
+  </bean>
+
+  <bean name="mercury.smtp.send.ConnectionHandler" class="org.abstracthorizon.mercury.smtp.SMTPConnectionHandler">
+    <property name="connectionHandler" ref="mercury.smtp.AccessLoggerConnectionHandler"/>
+    <property name="storageManager" ref="mercury.StorageManager"/>
+  </bean>
+
+  <bean name="mercury.smtp.send.AccessLoggerConnectionHandler" class="org.abstracthorizon.mercury.smtp.logging.SMTPSPAMAccessLogConnectionHandler">
+    <property name="logFileRotator">
+      <bean class="org.abstracthorizon.danube.support.logging.util.LogFileRotatorImpl">
+        <!-- property name="logFile" value="server-data:/mercury/log/smtp_access.log"/ -->
+        <property name="logDirectory" value="send"/>
+        <property name="logFileName" value="send_access.log"/>
+        <!-- property name="bufferLen" value="10240"/ -->
+        <property name="bufferLen" value="100"/>
+        <property name="numberOfGenerations" value="-1"/> <!-- Unlimited -->
+        <property name="maxAge" value="86400000"/> <!-- One day 1000*60*60*24 -->
+        <property name="maxSize" value="100000000"/> <!-- Slightlly less then a 100Mb -->
+      </bean>
+    </property>
+    <!-- property name="logPattern" value="%a %h %A %p %t %D %T %B %E %R %H %S"/ -->
+    <property name="logPattern" value="%y %S %R %h localhost SMTP - %r %b"/>
+    <property name="connectionHandler" ref="mercury.smtp.send.SMTPSendCommandFactory"/>
+  </bean>
+
+  <bean name="mercury.smtp.send.SMTPSendCommandFactory" class="org.abstracthorizon.mercury.smtp.send.SMTPSendCommandFactory" init-method="init">
+    <property name="inactivityTimeout" value="1800000"/> <!--  1/2 of an hour for valid recipient to be delivered -->
+    <property name="maxFlushSpeed" value="10240"/> <!--  10kbs per second for (large) SPAM content -->
+    <property name="filters">
+      <list>
+        <bean class="org.abstracthorizon.mercury.smtp.filter.quiet.QuietFindStorageFilter"/>
+        <bean class="org.abstracthorizon.mercury.filter.spam.DestinationMailboxFilter">
+          <property name="spamSlowDown" value="100"/> <!--  Only ten recipients per minute for SPAM -->
+        </bean>
+      </list>
+    </property>
+    <property name="transport" ref="mercury.smtp.send.transport"/>
+  </bean>
+
+  <bean name="mercury.smtp.send.transport" class="org.abstracthorizon.mercury.smtp.transport.TransportScheduler">
+    <property name="outboundStorageLocation" value="outbound"/>
+    <property name="transport" ref="mercury.javamail.remote.transport.Javamail"/>
+  </bean>
+    
+  <bean name="mercury.javamail.remote.transport.Javamail" class="org.abstracthorizon.mercury.smtp.transport.JavamailTransport">
+    <property name="host" value="localhost"/>
+    <property name="port" value="8465"/>
+    <property name="SSL" value="true"/>
+    <property name="username" value="username"/>
+    <property name="password" value="password"/>
+  </bean>
+
+  <bean id="mercury.smtp.remote.transport.timerTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+    <property name="delay" value="10000"/>
+    <property name="period" value="3600000"/> <!-- one hour -->
+    <property name="timerTask">
+      <bean class="org.springframework.scheduling.timer.MethodInvokingTimerTaskFactoryBean">
+        <property name="targetObject" ref="mercury.smtp.send.transport"/>
+        <property name="targetMethod" value="checkPending"/>
+      </bean>
+    </property>
+  </bean>
+
+
+<!-- Finger -->
+
+<!--
+  <bean name="mercury.smtp.finger" class="org.abstracthorizon.mercury.finger.SimpleFinger">
+    <property name="hostName" value="add your host name here"/>
+    <property name="user" value="postmaster"/>
+    <property name="timeout" value="60000"/>
+  </bean>
+
+  <bean id="mercury.smtp.finger.timerTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+    <property name="delay" value="10000"/>
+    <property name="period" value="3600000"/>
+    <property name="timerTask">
+      <bean class="org.springframework.scheduling.timer.MethodInvokingTimerTaskFactoryBean">
+        <property name="targetObject" ref="mercury.smtp.finger"/>
+        <property name="targetMethod" value="finger"/>
+      </bean>
+    </property>
+  </bean>
+
+  <bean id="mercury.smtp.finger.timerFactory" class="org.springframework.scheduling.timer.TimerFactoryBean">
+    <property name="scheduledTimerTasks">
+      <list>
+        <ref bean="mercury.smtp.finger.timerTask"/>
+      </list>
+    </property>
+  </bean>
+  
+-->
+
+
+<!-- IMAP Service part -->
+
+  <bean name="mercury.imap.service" class="org.abstracthorizon.danube.service.server.MultiThreadServerSocketService">
+    <service />
+
+    <property name="name" value="imap"/>
+    <property name="port" value="8143"/>
+    <property name="serverSocketTimeout" value="1000"/>
+    <property name="newSocketTimeout" value="60000"/>
+    <property name="connectionHandler" ref="mercury.imap.AccessLoggerConnectionHandler"/>
+  </bean>
+
+  <bean name="mercury.imap.AccessLoggerConnectionHandler" class="org.abstracthorizon.danube.support.logging.AccessLogConnectionHandler">
+    <property name="logFileRotator">
+      <bean class="org.abstracthorizon.danube.support.logging.util.LogFileRotatorImpl">
+        <property name="logDirectory" value="access"/>
+        <property name="logFileName" value="imap_access.log"/>
+        <property name="bufferLen" value="10240"/>
+        <property name="numberOfGenerations" value="-1"/> <!-- Unlimited -->
+        <property name="maxAge" value="86400000"/> <!-- One day 1000*60*60*24 -->
+        <property name="maxSize" value="100000000"/> <!-- Slightlly less then a 100Mb -->
+      </bean>
+    </property>
+    <property name="logPattern" value="%a %h %A %p %t %D %T"/>
+    <property name="connectionHandler" ref="mercury.imap.LoggingConnectionHandler"/>
+  </bean>
+
+  <bean name="mercury.imap.LoggingConnectionHandler" class="org.abstracthorizon.danube.support.logging.LoggingConnectionHandler">
+    <property name="logging" value="false"/>
+    <property name="logsPath" value="logs"/>
+    <property name="addressPattern" value="-"/> <!-- For nothing or .* for all -->
+    <property name="logFileNamePattern" value="imap_%D-%T-%a-%p.log"/>
+    <property name="directional" value="true"/>
+    <property name="connectionHandler" ref="mercury.imap.ConnectionHandler"/>
+  </bean>
+
+  <bean name="mercury.imap.ConnectionHandler" class="org.abstracthorizon.mercury.imap.IMAPConnectionHandler">
+    <property name="storageManager" ref="mercury.StorageManager"/>
+  </bean>
+
+</beans>

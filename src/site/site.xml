@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Mercury">
+
+  <skin>
+    <groupId>org.abstracthorizon</groupId>
+    <artifactId>abstracthorizon-maven-skin</artifactId>
+    <version>1.0-SNAPSHOT</version>
+  </skin>
+
+  <publishDate position="bottom" />
+
+  <bannerLeft>
+    <name>Abstract Horizon</name>
+    <src>../images/ah.png</src>
+    <href>http://www.abstracthorizon.org</href>
+  </bannerLeft>
+
+  <bannerRight>
+    <name>Mercury</name>
+    <src>images/mercury.png</src>
+    <href>http://extend.abstracthorizon.org</href>
+  </bannerRight>
+
+
+  <body>
+    <menu name="Mercury">
+      <item name="About" href="index.html"/>
+      <item name="Quickstart" href="quickstart.html"  collapse="true"/>
+
+      <item name="Documentation" href="documentation.html"  collapse="true">
+        <item name="Intruduction" href="introduction.html"/>
+        <item name="Overview" href="overview.html"/>
+        <item name="SMTP Server" href="smtp.html">
+          <item name="SPAM Detection" href="spam-detection.html"/>
+        </item>
+        <item name="IMAP Server" href="imap.html"/>
+
+        <item name="Common" href="common.html">
+          <item name="Maildir" href="maildir.html"/>
+        </item>
+
+        <item name="Links" href="links.html"/>
+      </item>
+      <item name="Forum" href=""/>
+      <item name="JavaDoc" href="api/index.html"/>
+      <item name="Downloads" href="http://download.abstracthorizon.org/mercury/"/>
+
+    </menu>
+
+    <!-- menu ref="modules"/ -->
+    <menu ref="reports" collapse="true"/>
+  </body>
+  <poweredBy>
+    <logo name="" href=" " img=" " />
+  </poweredBy>
+</project>

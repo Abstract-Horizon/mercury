@@ -1,0 +1,16 @@
+deploy (???)
+  mercury-data
+    config
+      account.properties
+      account.keystore
+    mailboxes  
+      test.com
+        test
+          .inbox
+            cur
+            new
+            tmp
+  mercury-logs
+    access
+    logs
+  

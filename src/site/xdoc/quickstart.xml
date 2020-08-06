@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<document>
+
+  <properties>
+    <title>Mercury Documentation - Quickstart</title>
+  </properties>
+
+  <head>
+  </head>
+
+  <body>
+    <section name="Quickstart">
+
+    <subsection name="Download and install">
+      <p>
+        To start with the Mercury first download the latest binary package
+        from <a href="http://download.abstracthorizon.org/mercury/">here</a>.
+      </p>
+      <p>
+        Next step is to create a folder and unzip downloaded package in it.
+      </p>
+    </subsection>
+    <subsection name="Run">
+      <p>
+        Now you can run it with:
+      </p>
+      <code>
+        sh bin/start.sh
+      </code>
+    </subsection>
+    <subsection name="Explore">
+      <p>
+        Next step is to explore &quot;bean-console&quot;:<br />
+        
+        <a href="http://localhost:8080/bean-console">http://localhost:8080/bean-console</a>
+      </p>
+      <p>
+        In bean console go to &quot;DeploymentManager&quot;, 
+        then &quot;deployedModules&quot; and follow &quot;mercury-mail-suite&quot; and
+        at the end &quot;mercury.StorageManager&quot;. After that you will be on the url:<br />
+        
+        <a href="http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.StorageManager]">
+        http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.StorageManager]</a>.<br />
+        (You can get there as well just by clicking the link above)
+      </p>
+      <p>
+        In &quot;StorageManager&quot; you can:
+      </p>
+      <ul> 
+        <li>set your main domain name (&quot;mainDomain&quot; property);</li> 
+        <li>add more domains this smtp server will accept e-mails for (&quot;addDomain()&quot; method);</li>
+        <li>add mailbox (&quot;addMailbox()&quot; method</li>
+        <li>or add alias to existing mailbox (&quot;addAlias()&quot; method</li>
+      </ul>
+      <p>
+        <b>Note: don't forget to call &quot;save&quot; method after properties changes. Adding mailbox/alias does it
+        automatically</b>
+      </p>
+    </subsection>
+    <subsection name="Use">
+      <p>
+        Now you can set up your mail client to send e-mail to smpt server &quot;localhost&quot; at port 8025. 
+        Don't forget that only e-mails to defined mailboxes will be delivered. Others will be quietly discarded. See
+        documentation for more details.
+      </p>
+      <p>
+        Also, you can set up same mail client to use &quot;localhost&quot; for IMAP server at port number 8143. 
+        Remember to use just mailbox name a account's username along with specified password. 
+      </p>
+    </subsection>
+    <subsection name="Places of Interest">
+      <p>
+        Places of interest are:
+      </p>
+      <ul>
+        <li><a href="http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.imap.LoggingConnectionHandler]">
+        http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.imap.LoggingConnectionHandler]</a>
+         - change &quot;addressPattern&quot; to &quot;.*&quot; and &quot;logging&quot; to &quot;true&quot; and you will see logs for IMAP in &quot;server/default/deploy/mercury-logs/logs&quot;.
+         Same is with <a href="http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.smtp.LoggingConnectionHandler]">
+         http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.smtp.LoggingConnectionHandler]</a></li>
+      
+        <li>
+          <a href="http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.smtp.AccessLoggerConnectionHandler]">
+          http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.smtp.AccessLoggerConnectionHandler]</a>
+          and
+          <a href="http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.imap.AccessLoggerConnectionHandler]">
+          http://localhost:8080/bean-console/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.imap.AccessLoggerConnectionHandler]</a>
+          to set access log patterns. You can consult JavaDocs for codes:
+          <a href="http://mercury.abstracthorizon.org/api/org/abstracthorizon/mercury/smtp/logging/SMTPSPAMPatternProcessor.html">SMTPSPAMPatternProcessor</a>
+          and
+          <a href="http://danube.abstracthorizon.org/api/org/abstracthorizon/danube/support/logging/AccessLogConnectionHandler.html">AccessLogConnectionHandler</a>.
+          Access logs can be found in &quot;server/default/deploy/mercury-logs/access&quot;.
+          <b>Note: changes here are only temporary until server is restarted. For permanent changes see config files in &quot;server/default/deploy/mercury-mail-suite/&quot;.</b>
+        </li>
+
+        <li>
+          Folder: &quot;server/default/deploy/mercury-data/&quot; contains &quot;config&quot; and &quot;mailboxes&quot; sub-folders.
+          First contains configuration property file and keystore for passwords while second contains sub-folders of domains with
+          folders with accounts. Folders of accounts are in Maildir format, so, theoretically, they can be read directly 
+          by some other programs that recognise Maildir format, although that is not recommended.
+        </li>
+        
+        <li>
+          Folder &quot;server/default/deploy/mercury-mail-suite/&quot; contains three Spring framework xml files. They have
+          definitions of server, addresses, ports, logging, etc. STMP config file has commended out section that
+          contains definition of Finger invocation as some providers allow you to invoke finger command in order to
+          fetch all &quot;missed&quot; e-mails.
+        </li>
+        
+        <li>
+          Consult documentation of <a href="http://danube.abstracthorizon.org">Danube</a> and <a href="http://extend.abstracthorizon.org">Extend</a>
+          for setting up security around HTTP server and &quot;bean-console&quot;.
+        </li>
+        
+        <li>
+          Interesting but currently not fully implemented is WEB-DAV access to &quot;bean-console&quot; through:<br />
+          
+          <a href="http://localhost:8080/bean-webdav">http://localhost:8080/bean-webdav</a>.<br />
+          
+          Beans are defined as folders and properties as files. You can do something like: <br />
+          <code>
+            cat folderYouMountedBeanWebdav/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.smtp.LoggingConnectionHandler]
+          </code><br />
+          to display logging pattern for SMTP server. Writing to the file works as well:
+          <code>
+            echo &gt;folderYouMountedBeanWebdav/[DeploymentManager]/deployedModules/[mercury-mail-suite]/[mercury.smtp.LoggingConnectionHandler] &quot;.*&quot;
+          </code><br />
+          
+        </li>
+      </ul>
+        
+    </subsection>
+
+  </section>
+
+</body>
+</document>

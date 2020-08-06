@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<document>
+
+  <properties>
+    <author email="daniel.sendula@abstracthorizon.org">Daniel Sendula</author>
+    <title>Mercury (Accounts Spring)</title>
+  </properties>
+
+  <meta name="keyword" content="danube java"/>
+
+  <body>
+    <section name="Mercury (Accounts Spring)">
+      <p>
+    This project provides AccountsManager implementation that uses MailDir as repository, KeyStore for
+    secure place for passwords and properties for describing where accounts are stored and what are
+    aliases.
+      </p>
+    </section>
+  </body>
+
+</document>

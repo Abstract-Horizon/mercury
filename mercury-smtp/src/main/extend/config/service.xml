@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+
+<beans>
+  <depends-on>danube</depends-on>
+  <depends-on>mercury-common</depends-on>
+
+<!--
+  <bean name="mercury.smtp.Manager" class="org.abstracthorizon.mercury.smtp.manager.spring.SimpleSMTPManager" init-method="init">
+    <property name="propertiesResource" value="server-data:/mercury/etc/smtp-db.properties"/>
+    <property name="autosave" value="true"/>
+    <property name="caseSensitive" value="false"/>
+  </bean>
+
+  <bean name="mercury.smtp.service" class="org.abstracthorizon.danube.service.server.MultiThreadServerSocketService">
+    <service />
+
+    <property name="name" value="smtp"/>
+    <property name="port" value="8025"/>
+    <property name="connectionHandler" ref="mercury.smtp.LoggingConnectionHandler"/>
+  </bean>
+
+  <bean name="mercury.smtp.LoggingConnectionHandler" class="org.abstracthorizon.danube.support.logging.LoggingConnectionHandler">
+    <property name="logging" value="false"/>
+    <property name="logsPath" value="/home/daniel/mail/log"/>
+    <property name="addressPattern" value=".*"/>
+    <property name="logFileNamePattern" value="smtp_%D-%T-%a:%p.log"/>
+    <property name="directional" value="true"/>
+    <property name="connectionHandler" ref="mercury.smtp.ConnectionHandler"/>
+  </bean>
+
+  <bean name="mercury.smtp.ConnectionHandler" class="org.abstracthorizon.mercury.smtp.SMTPConnectionHandler">
+    <property name="connectionHandler" ref="mercury.smtp.AccessLoggerConnectionHandler"/>
+    <property name="SMTPManager" ref="mercury.smtp.Manager"/>
+  </bean>
+
+  <bean name="mercury.smtp.AccessLoggerConnectionHandler" class="org.abstracthorizon.mercury.smtp.logging.SMTPSPAMAccessLogConnectionHandler">
+    <property name="logFileRotator">
+      <bean class="org.abstracthorizon.danube.support.logging.util.LogFileRotatorImpl">
+        <property name="logFile" value="/home/daniel/mail/log/smtp_access.log"/>
+        <property name="numberOfGenerations" value="4"/>
+      </bean>
+    </property>
+    <property name="logPattern" value="%a %h %A %p %t %D %T %B %E %R %H %S"/>
+    <property name="connectionHandler" ref="mercury.smtp.SMTPQuietFilterCommandFactory"/>
+  </bean>
+-->
+
+  <bean name="mercury.smtp.SMTPQuietFilterCommandFactory" class="org.abstracthorizon.mercury.smtp.filter.quiet.SMTPQuietFilterCommandFactory" init-method="init">
+    <property name="filters">
+      <list>
+        <bean class="org.abstracthorizon.mercury.filter.spam.SimpleSubjectFilter"/>
+        <bean class="org.abstracthorizon.mercury.filter.spam.FinalSPAMFilter"/>
+        <bean class="org.abstracthorizon.mercury.smtp.filter.quiet.QuietFindStorageFilter"/>
+        <bean class="org.abstracthorizon.mercury.filter.spam.DestinationMailboxFilter"/>
+      </list>
+    </property>
+  </bean>
+
+</beans>

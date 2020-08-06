@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans>
+
+  <depends-on>org.abstracthorizon.danube:danube:0.4.6</depends-on>
+
+</beans>

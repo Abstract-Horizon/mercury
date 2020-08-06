@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<document>
+
+  <properties>
+    <title>Mercury Documentation - SMTP Server</title>
+  </properties>
+
+  <head>
+  </head>
+
+  <body>
+    <section name="Introduction">
+      <p>
+        SMTP server is currently implemented as only inboud server which accepts e-mail from the internet
+        and stores them using supplied <a href="links.html#JavaMail">JavaMail</a> storage.
+      </p>
+
+      <subsection name="Implementation">
+        <p>
+          As already mentioned SMTP server is implemented using
+          <a href="http://danube.abstracthorizon.org">Danube</a> framework which implements
+          accepting socket connections
+          (<a href="http://danube.abstracthorizon.org/api/org/abstracthorizon/danube/service/server/MultiThreadServerSocketService.html">MultiThreadServerSocketService</a>)
+          and passing them to
+          <a href="api/org/abstracthorizon/mercury/smtp/SMTPConnectionHandler.html">SMTPConnectionHandler</a>.
+        </p>
+        <p>
+          <a href="api/org/abstracthorizon/mercury/smtp/SMTPConnectionHandler.html">SMTPConnectionHandler</a>'s
+          resposibility is to wrap
+          <a href="http://danube.abstracthorizon.org/api/org/abstracthorizon/danube/connection/Connection.html">Connection</a>
+          so it can carry more information that are of internal implementation's concern. Also, it handles
+          initial greeting and shutting down responses and reseting the &quot;session&quot; data. For all
+          other processing is forwarded to
+          <a href="api/org/abstracthorizon/mercury/smtp/command/SMTPCommandFactory.html">SMTPCommandFactory</a>
+          or extension of it.
+        </p>
+        <p>
+          There are three implementations of
+          <a href="api/org/abstracthorizon/mercury/smtp/command/SMTPCommandFactory.html">SMTPCommandFactory</a>:
+        </p>
+        <ul>
+          <li>
+            <a href="api/org/abstracthorizon/mercury/smtp/command/SMTPCommandFactory.html">SMTPCommandFactory</a> itself
+            -
+            This factory implements SMTP server commands directly without involving any
+            extra code to direct should e-mail be accepted or not. Only check is done to determine if
+            destination domain and mailbox are available or not.
+          </li>
+          <li>
+            <a href="api/org/abstracthorizon/mercury/smtp/filter/SMTPFilterCommandFactory.html">SMTPFilterCommandFactory</a>
+            -
+            This implementation allows extra set of
+            <a href="api/org/abstracthorizon/mercury/smtp/filter/Filter.html">Filter</a>s to be implemented
+            which are then registered with the factory. Factory is then calling appropriate
+            <a href="api/org/abstracthorizon/mercury/smtp/filter/Filter.html">Filter</a>'s methods
+            in various stages of processing client's request and receiving an e-mail message.
+            At each of these steps
+            <a href="api/org/abstracthorizon/mercury/smtp/filter/Filter.html">Filter</a> implementation
+            can terminate the process with appropriate error that is passed back to the client.
+          </li>
+          <li>
+            <a href="api/org/abstracthorizon/mercury/smtp/filter/quiet/SMTPQuietFilterCommandFactory.html">SMTPQuietFilterCommandFactory</a>
+            -
+            implementation of it is very similar to
+            <a href="api/org/abstracthorizon/mercury/smtp/filter/SMTPFilterCommandFactory.html">SMTPFilterCommandFactory</a>
+            but this implementation do not return error back to the user and rather quietly drops the
+            incoming e-mail message.
+          </li>
+        </ul>
+      </subsection>
+<!--
+      <subsection name="">
+      </subsection>
+-->
+      <subsection name="Logging">
+        <p>
+
+        </p>
+      </subsection>
+
+      <subsection name="Finger">
+      </subsection>
+
+    </section>
+  </body>
+</document>

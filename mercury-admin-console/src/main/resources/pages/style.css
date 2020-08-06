@@ -1,0 +1,178 @@
+/*
+ * Copyright (c) 2005-2006 Creative Sphere Limited.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the LGPL licence
+ * which accompanies this distribution, and is available at
+ * http://www.gnu.org/copyleft/lesser.html
+ *
+ * Contributors:
+ *
+ *   Creative Sphere - initial API and implementation
+ *
+ */
+body {
+    background: #FFFFFF;
+    color: #333333;
+    font: verdana, arial, helvetica, sans-serif;
+
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-top: 10px;
+
+    padding-bottom: 20px;
+    padding-top: 0px;
+    xwidth: 100%;
+}
+
+a {
+    xcolor: #BCA98B;
+    color: #AB987A;
+    text-decoration: underline;
+    font-weight: normal;
+}
+a:link { cascade: a; }
+a:visited { cascade: a; }
+a:active { cascade: a; }
+a:hover { cascade: a; color: #BCA98B; }
+
+table {
+    font: verdana, arial, helvetica, sans-serif;
+    border-width: 1px;
+    border-style: solid;
+    padding-left: 1px;
+    padding-right: 1px;
+}
+
+table.quiet {
+    cascade: table;
+    border-width: 0px;
+    border-style: none;
+    padding-width: 1px;
+    margin-width: 0px;
+}
+
+table.wide {
+    cascade: table;
+    width: 100%;
+}
+
+table.inner {
+    cascade: table;
+    width: 100%;
+}
+
+th {
+    cascade: table;
+    font: verdana, arial, helvetica, sans-serif;
+    font-size: 12;
+    font-weight: bold;
+    text-align: left;
+    border: 0px;
+    border-style: solid;
+}
+
+td {
+    cascade: table;
+    font: 11px verdana, arial, helvetica, sans-serif;
+    font-size: 12;
+    font-weight: normal;
+    border: 0px;
+    margin-width: 0px;
+}
+
+td.right-button-cell {
+    cascade: td;
+    text-align: right;
+}
+
+td.left-button-cell {
+    cascade: td;
+    text-align: left;
+}
+
+td.actions {
+    cascade: td;
+    width: auto;
+    text-align: right;
+}
+
+tr.odd {
+    cascade: tr;
+    background: #F0D0A0;
+}
+
+tr.even {
+    cascade: tr;
+}
+
+div {
+    margin-bottom: 10px;
+}
+
+td.error {
+    cascade: td;
+    background: #FFCCCC;
+}
+
+h1, h2, h3 {
+    color: #666666;
+    padding: 5px;
+
+    border-bottom: 1px solid #999999;
+
+    margin-bottom: 10px;
+    margin-top: 0px;
+    font-weight: bold;
+}
+
+h1 {
+    margin-top: 20px;
+    font-size: 17;
+}
+
+h2 {
+    margin-top: 20px;
+    font-size: 15;
+}
+
+h3 {
+    margin-top: 10px;
+    font-size: 15;
+    margin-left: 10px;
+}
+
+h4 {
+    margin-top: 25px;
+    font-size: 12;
+}
+
+form {
+    margin-bottom: 0px;
+}
+
+#main p {
+    margin-left: 25;
+}
+
+#banner {
+  padding: 0px;
+}
+
+#banner img {
+  border: none;
+}
+
+#banner {
+  text-align: center;
+  background: url(images/ah-logo-strike-through.png) repeat-x center left;
+}
+
+#bannerRight img {
+  float:none;
+  margin: 3px;
+}
+
+#message {
+  color: #800000;
+  font-weight: bold;
+}

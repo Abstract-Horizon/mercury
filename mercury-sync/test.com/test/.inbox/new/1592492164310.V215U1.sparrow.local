@@ -1,0 +1,11 @@
+Received: from sparrow.local ([127.0.0.1]) by null for test; Thu, 18 Jun 2020 15:56:04 +0100
+From: test@test.com
+To: test@test.com
+Message-ID: <263863369.01592492164254.JavaMail.david@sparrow.local>
+Subject: test
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Date: Thu, 18 Jun 2020 15:56:04 +0100
+
+test mail

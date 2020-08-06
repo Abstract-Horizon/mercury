@@ -1,0 +1,393 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <parent>
+    <groupId>org.abstracthorizon</groupId>
+    <artifactId>abstracthorizon-dev</artifactId>
+    <version>1.1.2</version>
+  </parent>
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.abstracthorizon.mercury</groupId>
+
+  <artifactId>mercury</artifactId>
+
+  <packaging>pom</packaging>
+
+  <name>Extend</name>
+
+  <version>2.1-SNAPSHOT</version>
+
+  <description>Mercury - e-mail communication package</description>
+
+  <url>http://mercury.abstracthorizon.org/</url>
+
+  <organization>
+    <name>Abstract Horizon</name>
+    <url>http://www.abstracthorizon.org/</url>
+  </organization>
+
+  <issueManagement>
+    <system>Trac</system>
+    <url>http://trac.abstracthorizon.org/mercury</url>
+  </issueManagement>
+  
+  <inceptionYear>2005</inceptionYear>
+  
+  <licenses>
+    <license>
+      <name>Eclipse Public License - v 1.0</name>
+      <url>http://www.eclipse.org/legal/epl-v10.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <!-- SCM -->
+  <scm>
+    <connection>scm:svn:http://svn.abstracthorizon.org/mercury/trunk/mercury/</connection>
+    <developerConnection>scm:svn:https://svn.abstracthorizon.org/mercury/trunk/mercury/</developerConnection>
+    <url>http://trac.abstracthorizon.org/danube/mercury/trunk/mercury/</url>
+  </scm>
+
+  <modules>
+    <module>mercury-maildir</module>
+    <!-- <module>mercury-maildir-ext</module> -->
+    <module>mercury-common</module>
+    <module>mercury-finger</module>
+    <module>mercury-smtp</module>
+    <module>mercury-smtp-spring</module>
+    <module>mercury-imap</module>
+    <module>mercury-spam</module>
+    <module>mercury-accounts-spring</module>
+    <module>mercury-mail-suite</module>
+    <module>mercury-dynamic-install</module>
+    <module>mercury-admin-console</module>
+    <module>mercury-sync</module>
+   </modules>
+
+  <dependencies />
+
+  <properties>
+    <spring.version>2.5.6</spring.version>
+    <slf4j.version>1.5.6</slf4j.version>
+    <junit.version>4.11</junit.version>
+    <pasulj.version>0.0.1</pasulj.version>
+    <javax.mail.version>1.4</javax.mail.version>
+    <extend.version>1.2-SNAPSHOT</extend.version>
+    <danube.version>1.1-SNAPSHOT</danube.version>
+    <jmock.version>2.5.1</jmock.version>
+  </properties>
+
+  
+  <dependencyManagement>
+    <dependencies>
+
+      <!-- SLF4J Logging -->
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-log4j12</artifactId>
+        <version>${slf4j.version}</version>
+        <type>jar</type>
+        <scope>compile</scope>
+      </dependency>
+      <!-- To Satisfy Spring JCL deps and our spring-inherited classes (scope:compile then!) -->
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>jcl-over-slf4j</artifactId>
+        <version>${slf4j.version}</version>
+        <type>jar</type>
+        <scope>runtime</scope>
+      </dependency>
+
+      <!-- Various commonly used deps - SPRING -->
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-core</artifactId>
+        <version>${spring.version}</version>
+        <type>jar</type>
+        <exclusions>
+          <exclusion>
+            <artifactId>commons-logging</artifactId>
+            <groupId>commons-logging</groupId>
+          </exclusion>
+          <exclusion>
+            <artifactId>log4j</artifactId>
+            <groupId>log4j</groupId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-beans</artifactId>
+        <version>${spring.version}</version>
+        <type>jar</type>
+        <exclusions>
+          <exclusion>
+            <artifactId>commons-logging</artifactId>
+            <groupId>commons-logging</groupId>
+          </exclusion>
+          <exclusion>
+            <artifactId>log4j</artifactId>
+            <groupId>log4j</groupId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-context</artifactId>
+        <version>${spring.version}</version>
+        <type>jar</type>
+        <exclusions>
+          <exclusion>
+            <artifactId>commons-logging</artifactId>
+            <groupId>commons-logging</groupId>
+          </exclusion>
+          <exclusion>
+            <artifactId>log4j</artifactId>
+            <groupId>log4j</groupId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-aop</artifactId>
+        <version>${spring.version}</version>
+        <type>jar</type>
+        <exclusions>
+          <exclusion>
+            <artifactId>commons-logging</artifactId>
+            <groupId>commons-logging</groupId>
+          </exclusion>
+          <exclusion>
+            <artifactId>log4j</artifactId>
+            <groupId>log4j</groupId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-support</artifactId>
+        <version>${spring.version}</version>
+        <type>jar</type>
+        <exclusions>
+          <exclusion>
+            <artifactId>commons-logging</artifactId>
+            <groupId>commons-logging</groupId>
+          </exclusion>
+          <exclusion>
+            <artifactId>log4j</artifactId>
+            <groupId>log4j</groupId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>javax.mail</groupId>
+        <artifactId>mail</artifactId>
+        <version>${javax.mail.version}</version>
+        <type>jar</type>
+        <scope>compile</scope>
+      </dependency>
+
+
+      <dependency>
+        <groupId>org.abstracthorizon.pasulj</groupId>
+        <artifactId>pasulj</artifactId>
+        <version>${pasulj.version}</version>
+        <type>jar</type>
+        <scope>compile</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>${junit.version}</version>
+        <type>jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.jmock</groupId>
+        <artifactId>jmock</artifactId>
+        <version>${jmock.version}</version>
+        <type>jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.abstracthorizon.extend</groupId>
+        <artifactId>extend-auth</artifactId>
+        <version>${extend.version}</version>
+        <type>jar</type>
+        <scope>compile</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.danube</groupId>
+        <artifactId>danube-service</artifactId>
+        <version>${danube.version}</version>
+        <type>jar</type>
+        <scope>compile</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.danube</groupId>
+        <artifactId>danube-support</artifactId>
+        <version>${danube.version}</version>
+        <type>jar</type>
+        <scope>compile</scope>
+      </dependency>
+
+      <!-- Project modules -->
+
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-maildir</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-smtp</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-smtp-spring</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-imap</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-spam</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-finger</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-accounts-spring</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-dist</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <repositories>
+    <repository>
+      <id>abstracthorizon</id>
+      <layout>default</layout>
+      <name>Abstracthorizon.org Repository</name>
+      <releases>
+        <enabled>true</enabled>
+        <checksumPolicy>fail</checksumPolicy>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <url>
+        http://repository.abstracthorizon.org/maven2/abstracthorizon
+      </url>
+    </repository>
+    <repository>
+      <id>abstracthorizon.snapshot</id>
+      <layout>default</layout>
+      <name>Abstracthorizon.org Snapshot Repository</name>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+        <checksumPolicy>fail</checksumPolicy>
+      </snapshots>
+      <url>
+        http://repository.abstracthorizon.org/maven2/abstracthorizon.snapshot
+      </url>
+    </repository>
+  </repositories>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>2.1.2</version>
+	<executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.3</version>
+          <configuration>
+            <source>1.8</source>
+            <target>1.8</target>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <extensions>
+      <!-- Enabling the use of SSH -->
+       <extension>
+        <groupId>org.apache.maven.wagon</groupId>
+        <artifactId>wagon-ssh</artifactId>
+        <version>2.9</version>
+      </extension>
+    </extensions>
+  </build>
+
+  <distributionManagement>
+    <site>
+      <id>abstracthorizon.site</id>
+      <url>scp://server.creative-sphere.com/srv/www.abstracthorizon.org/html/mercury</url>
+    </site>
+  </distributionManagement>
+
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <aggregate>true</aggregate>
+          <destDir>api</destDir>
+          <links>
+            <link>http://java.sun.com/j2se/1.5/docs/api/</link>
+            <link>http://static.springframework.org/spring/docs/1.2.x/api/</link>
+            <link>http://static.springframework.org/spring-webflow/docs/pr5/api/</link>
+            <link>http://jakarta.apache.org/velocity/docs/api/</link>
+            <link>http://freemarker.sourceforge.net/docs/api/</link>
+            <link>http://tapestry.apache.org/tapestry4/tapestry/apidocs/</link>
+            <link>http://jakarta.apache.org/hivemind/hivemind/apidocs/</link>
+            <link>http://java.sun.com/javaee/javaserverfaces/1.2/docs/api/</link>
+          </links>
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
+
+</project>

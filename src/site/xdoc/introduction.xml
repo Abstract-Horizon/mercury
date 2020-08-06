@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<document>
+
+  <properties>
+    <title>Mercury Documentation - Introduction</title>
+  </properties>
+
+  <head>
+  </head>
+
+  <body>
+    <section name="Introduction">
+      <p>
+        Mercury is set of e-mail related projects. It currently has implementations of
+        SMTP inbound server and IMAP 4rev1 server.
+      </p>
+      <p>
+        E-mail storage is based on <a href="links.html#JavaMail">JavaMail</a> technology and
+        there is <a href="maildir.html">Maildir</a> JavaMail implementation supplied.
+      </p>
+    </section>
+  </body>
+</document>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<document>
+
+  <properties>
+    <title>Abstract Horizon - Mercury</title>
+  </properties>
+
+  <head>
+  </head>
+
+  <body>
+    <section name="About">
+      <p>
+        Mercury is set of e-mail related projects. It currently has implementations of
+        SMTP inbound server and IMAP 4rev1 server. Both are working
+      based on Maildir JavaMail implementation.
+      </p>
+    </section>
+
+    <section name="News">
+      <subsection name="14th Nov 2007">
+        <p>
+          Version 2.0.1 is released!
+        </p>
+        <p>
+          Significant change is that project is re-organised and build as Maven project.
+          There were some minor improvements and bug fixes.
+        </p>
+      </subsection>
+    </section>
+
+    <section name="Documentation">
+      <p>
+        Documentation for Mercury can be found <a href="documentation.html">here</a>.
+      </p>
+      <p>
+        For quick start with Mercury check <a href="quickstart.html">here</a>.
+      </p>
+      <p>
+        API documentation can be found <a href="api/index.html">here</a>.
+      </p>
+    </section>
+
+    <section name="Download">
+      <p>
+        Binary distribution can be found <a href="http://download.abstracthorizon.org/mercury/">here</a>.
+      </p>
+      <p>
+        Source can be browsed <a href="http://svn.abstracthorizon.org/mercury/">here</a>.
+      </p>
+    </section>
+<!--
+    <section name="Demo">
+      <p>
+        As soon as Extend is stared you can point your web browser to http://localhost:8080/bean-console.
+        Current configuration will enforce SSL (switch to https://) and ask you for username and password:
+      </p>
+      <ul>
+        <li>Username: <b>admin</b></li>
+        <li>Password: <b>admin123</b></li>
+      </ul>
+    </section>
+ -->
+    <section name="Help">
+      <p>
+        Every kind of help is more then welcome - from coding, designing to
+        testing (using it) or commenting on it.
+      </p>
+    </section>
+
+    <section name="Contact and Support">
+      <p>
+        Please feel free to send all comments to the <a href="http://www.abstracthorizon.org/forum/index.php?c=8">forum</a> topics.
+      </p>
+    </section>
+
+  </body>
+</document>
