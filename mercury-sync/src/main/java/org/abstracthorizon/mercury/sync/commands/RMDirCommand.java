@@ -12,12 +12,9 @@
  */
 package org.abstracthorizon.mercury.sync.commands;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 
 import org.abstracthorizon.mercury.common.command.CommandException;

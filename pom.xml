@@ -63,7 +63,7 @@
     <module>mercury-dynamic-install</module>
     <module>mercury-admin-console</module>
     <module>mercury-sync</module>
-    <module>mercury-integration-tests</module>
+    <!--<module>mercury-integration-test</module>-->
   </modules>
 
   <dependencies />
