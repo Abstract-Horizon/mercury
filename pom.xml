@@ -280,7 +280,7 @@
       </dependency>
       <dependency>
         <groupId>org.abstracthorizon.mercury</groupId>
-        <artifactId>mercury-dist</artifactId>
+        <artifactId>mercury-admin-console</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>
