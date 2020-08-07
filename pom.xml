@@ -63,7 +63,8 @@
     <module>mercury-dynamic-install</module>
     <module>mercury-admin-console</module>
     <module>mercury-sync</module>
-   </modules>
+    <module>mercury-integration-tests</module>
+  </modules>
 
   <dependencies />
 
@@ -283,7 +284,14 @@
         <artifactId>mercury-admin-console</artifactId>
         <version>${project.version}</version>
       </dependency>
-    </dependencies>
+<!--
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-integration-tests</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+-->
+      </dependencies>
   </dependencyManagement>
 
   <repositories>
