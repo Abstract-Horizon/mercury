@@ -52,9 +52,37 @@
     
     <dependency>
       <groupId>org.abstracthorizon.mercury</groupId>
+      <artifactId>mercury-spam</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.abstracthorizon.mercury</groupId>
+      <artifactId>mercury-imap</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.abstracthorizon.mercury</groupId>
       <artifactId>mercury-maildir</artifactId>
     </dependency>
-    
+
+    <dependency>
+      <groupId>org.abstracthorizon.extend.danube</groupId>
+      <artifactId>extend-danube</artifactId>
+      <version>${extend.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.abstracthorizon.danube.webdav</groupId>
+      <artifactId>danube-webdav-spring</artifactId>
+      <version>${danube.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.abstracthorizon.danube</groupId>
+      <artifactId>danube-auth</artifactId>
+      <version>${danube.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>org.abstracthorizon.mercury</groupId>
       <artifactId>mercury-admin-console</artifactId>
