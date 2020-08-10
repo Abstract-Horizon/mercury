@@ -36,7 +36,11 @@ import org.abstracthorizon.mercury.accounts.spring.MaildirKeystoreStorageManager
  *
  * @author Daniel Sendula
  */
-public class LogoutController implements Controller {
+public class LogoutController
+    implements
+        Controller,
+        RequiresStorageManager,
+        RequiresIndexController {
 
     private MaildirKeystoreStorageManager storageManager;
     private IndexController indexController;

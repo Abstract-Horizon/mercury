@@ -27,7 +27,12 @@ import org.abstracthorizon.mercury.accounts.spring.MaildirKeystoreStorageManager
  *
  * @author Daniel Sendula
  */
-public class DeleteDomainController implements Controller {
+public class DeleteDomainController
+    implements
+        Controller,
+        RequiresStorageManager,
+        RequiresIndexController {
+
 
     private MaildirKeystoreStorageManager storageManager;
     private IndexController indexController;

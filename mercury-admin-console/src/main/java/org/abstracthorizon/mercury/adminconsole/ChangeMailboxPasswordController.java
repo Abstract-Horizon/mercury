@@ -30,7 +30,12 @@ import org.slf4j.LoggerFactory;
  *
  * @author Daniel Sendula
  */
-public class ChangeMailboxPasswordController implements Controller {
+public class ChangeMailboxPasswordController
+    implements
+        Controller,
+        RequiresStorageManager,
+        RequiresMailboxController {
+
 
     private static Logger logger = LoggerFactory.getLogger(ChangeMailboxPasswordController.class);
 

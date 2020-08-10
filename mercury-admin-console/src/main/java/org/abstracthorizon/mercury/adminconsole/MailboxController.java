@@ -27,7 +27,11 @@ import org.abstracthorizon.mercury.accounts.spring.MaildirKeystoreStorageManager
  *
  * @author Daniel Sendula
  */
-public class MailboxController implements Controller {
+public class MailboxController
+    implements
+        Controller,
+        RequiresStorageManager,
+        RequiresIndexController {
 
     private MaildirKeystoreStorageManager storageManager;
     private IndexController indexController;
