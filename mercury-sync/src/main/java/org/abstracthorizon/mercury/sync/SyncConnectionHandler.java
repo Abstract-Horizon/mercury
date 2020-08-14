@@ -12,21 +12,25 @@
  */
 package org.abstracthorizon.mercury.sync;
 
+import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
+import static org.abstracthorizon.mercury.sync.commands.DeleteCommand.deleteFile;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.abstracthorizon.danube.connection.Connection;
 import org.abstracthorizon.danube.service.server.ServerConnectionHandler;
@@ -35,7 +39,7 @@ import org.abstracthorizon.mercury.sync.cachedir.CachedDir;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
 import org.abstracthorizon.mercury.sync.cachedir.RemovedCachedDir;
 import org.abstracthorizon.mercury.sync.client.SyncClient;
-import org.abstracthorizon.mercury.sync.commands.DeleteCommand;
+import org.abstracthorizon.mercury.sync.client.SyncClient.RemoteFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +58,10 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
     private CachedDirs cachedDirs;
 
     private long lastSynced;
+
+    private URL keystoreURL;
+
+    private String password;
 
     /**
      * This method creates {@link SMTPSession}, sends initial response and sets state of session to {@link SMTPSession#STATE_CONNECTED}
@@ -114,9 +122,8 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         syncClient.setAddress(address);
         syncClient.setSSL(true);
 
-        // TODO externalise this
-        syncClient.setKeyStoreURL(getClass().getResource("/localhost.keystore"));
-        syncClient.setKeyStorePassword("password1234");
+        syncClient.setKeyStoreURL(keystoreURL);
+        syncClient.setKeyStorePassword(password);
 
         long thisSyncedTime = System.currentTimeMillis();
         syncClient.connect();
@@ -131,69 +138,90 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
     private void processCachedDir(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
 
-        if ("del".equals(local.getName())) {
-            syncRemoteDeletedToLocal(syncClient, local, remote);
+        Map<String, CachedDir> localSubdirs = local.subdirs().stream().collect(toMap(CachedDir::getName, identity()));
+        Map<String, CachedDir> remoteSubdirs = remote.subdirs().stream().collect(toMap(CachedDir::getName, identity()));
+
+        List<String> deleted = syncDeletedPaths(syncClient, local, remote, localSubdirs, remoteSubdirs);
+
+        for (String name : deleted) {
+            if (localSubdirs.containsKey(name)) {
+                localSubdirs.remove(name);
+            }
+
+            if (remoteSubdirs.containsKey(name)) {
+                remoteSubdirs.remove(name);
+            }
+        }
+
+        localSubdirs.entrySet().removeIf(e -> (e.getValue() instanceof RemovedCachedDir));
+        remoteSubdirs.entrySet().removeIf(e -> (e.getValue() instanceof RemovedCachedDir));
+
+        Map<String, CachedDir> commonLocalSubdirs = new HashMap<String, CachedDir>(localSubdirs);
+        commonLocalSubdirs.keySet().retainAll(remoteSubdirs.keySet());
+
+        Map<String, CachedDir> commonRemoteSubdirs = new HashMap<String, CachedDir>(remoteSubdirs);
+        commonRemoteSubdirs.keySet().retainAll(localSubdirs.keySet());
+
+        Map<String, CachedDir> uniqueLocalSubdirs = new HashMap<String, CachedDir>(localSubdirs);
+        uniqueLocalSubdirs.keySet().removeAll(commonLocalSubdirs.keySet());
+
+        Map<String, CachedDir> uniqueRemoteSubdirs = new HashMap<String, CachedDir>(remoteSubdirs);
+        uniqueRemoteSubdirs.keySet().removeAll(commonRemoteSubdirs.keySet());
+
+        for (CachedDir uniqueLocalDir : uniqueLocalSubdirs.values()) {
+            CachedDir newRemoteDir = createFolderRemote(uniqueLocalDir, remote, syncClient);
+            String name = uniqueLocalDir.getName();
+            commonLocalSubdirs.put(name, uniqueLocalDir);
+            commonRemoteSubdirs.put(name, newRemoteDir);
+        }
+        for (CachedDir uniqueRemoteDir : uniqueRemoteSubdirs.values()) {
+            CachedDir newLocalDir = createFolderLocal(uniqueRemoteDir, local);
+            String name = uniqueRemoteDir.getName();
+            commonLocalSubdirs.put(name, newLocalDir);
+            commonRemoteSubdirs.put(name, uniqueRemoteDir);
+
+        }
+        // This code here ^^^ treats removed subdirs as existing // bad - finding common subdirs should ignore removed cached dir
+
+        if (commonLocalSubdirs.containsKey("del")) {
             syncLocalDeletedToRemote(syncClient, local, remote);
+            syncRemoteDeletedToLocal(syncClient, local, remote);
+        }
+        if (commonLocalSubdirs.containsKey("new") && commonLocalSubdirs.containsKey("cur")) {
+//            {
+//                CachedDir localCachedDir = commonLocalSubdirs.get("new");
+//                CachedDir remoteCachedDir = commonRemoteSubdirs.get("new");
+//                // downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+//                uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+//            }
+//            {
+//                CachedDir localCachedDir = commonLocalSubdirs.get("cur");
+//                CachedDir remoteCachedDir = commonRemoteSubdirs.get("cur");
+//                // downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+//                uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+//            }
 
-        } else if ("new".equals(local.getName()) || "cur".equals(local.getName())) {
+            syncNewAndCurFiles(syncClient, local, remote);
+        }
+//        if (commonLocalSubdirs.containsKey("config")) {
+//            CachedDir localCachedDir = localSubdirs.get("config");
+//            CachedDir remoteCachedDir = remoteSubdirs.get("config");
+//            downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+//            uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+//        }
 
-            downloadModifiedFiles(syncClient, local, remote);
-            uploadModifiedFiles(syncClient, local, remote);
+        commonLocalSubdirs.remove("del");
+        commonRemoteSubdirs.remove("del");
+        commonLocalSubdirs.remove("new");
+        commonRemoteSubdirs.remove("new");
+        commonLocalSubdirs.remove("cur");
+        commonRemoteSubdirs.remove("cur");
+//        commonLocalSubdirs.remove("config");
+//        commonRemoteSubdirs.remove("config");
 
-        } else if ("tmp".equals(local.getName())) {
-            // Do nothing?
-        } else {
-            Map<String, CachedDir> localSubdirs = local.subdirs().stream().collect(toMap(CachedDir::getName, identity()));
-            Map<String, CachedDir> remoteSubdirs = remote.subdirs().stream().collect(toMap(CachedDir::getName, identity()));
-
-            List<String> deleted = syncDeletedPaths(syncClient, local, remote, localSubdirs, remoteSubdirs);
-
-            for (String name : deleted) {
-                if (localSubdirs.containsKey(name)) {
-                    localSubdirs.remove(name);
-                }
-
-                if (remoteSubdirs.containsKey(name)) {
-                    remoteSubdirs.remove(name);
-                }
-            }
-
-            localSubdirs.entrySet().removeIf(e -> (e.getValue() instanceof RemovedCachedDir));
-            remoteSubdirs.entrySet().removeIf(e -> (e.getValue() instanceof RemovedCachedDir));
-
-            Map<String, CachedDir> commonLocalSubdirs = new HashMap<String, CachedDir>(localSubdirs);
-            commonLocalSubdirs.keySet().retainAll(remoteSubdirs.keySet());
-
-            Map<String, CachedDir> commonRemoteSubdirs = new HashMap<String, CachedDir>(remoteSubdirs);
-            commonRemoteSubdirs.keySet().retainAll(localSubdirs.keySet());
-
-            for (CachedDir subLocalCachedDir : commonLocalSubdirs.values()) {
-
-                CachedDir subRemoteCachedDir = commonRemoteSubdirs.get(subLocalCachedDir.getName());
-                processCachedDir(syncClient, subLocalCachedDir, subRemoteCachedDir);
-            }
-
-            Map<String, CachedDir> uniqueLocalSubdirs = new HashMap<String, CachedDir>(localSubdirs);
-            uniqueLocalSubdirs.keySet().removeAll(commonLocalSubdirs.keySet());
-
-            Map<String, CachedDir> uniqueRemoteSubdirs = new HashMap<String, CachedDir>(remoteSubdirs);
-            uniqueRemoteSubdirs.keySet().removeAll(commonRemoteSubdirs.keySet());
-
-            Map<CachedDir, CachedDir> createdDirs = new HashMap<CachedDir, CachedDir>(); // LOCAL, REMOTE
-            for (CachedDir uniqueLocalDir : uniqueLocalSubdirs.values()) {
-                CachedDir newRemoteDir = createFolderRemote(uniqueLocalDir, remote, syncClient);
-                createdDirs.put(uniqueLocalDir, newRemoteDir);
-            }
-            for (CachedDir uniqueRemoteDir : uniqueRemoteSubdirs.values()) {
-                CachedDir newLocalDir = createFolderLocal(uniqueRemoteDir, local);
-                createdDirs.put(newLocalDir, uniqueRemoteDir);
-            }
-            // This code here ^^^ treats removed subdirs as existing // bad - finding common subdirs should ignore removed cached dir
-
-            Set<Entry<CachedDir, CachedDir>> entrySet = createdDirs.entrySet();
-            for (Entry<CachedDir, CachedDir> entry : entrySet) {
-                processCachedDir(syncClient, entry.getKey(), entry.getValue());
-            }
+        for (CachedDir subLocalCachedDir : commonLocalSubdirs.values()) {
+            CachedDir subRemoteCachedDir = commonRemoteSubdirs.get(subLocalCachedDir.getName());
+            processCachedDir(syncClient, subLocalCachedDir, subRemoteCachedDir);
         }
     }
 
@@ -265,111 +293,198 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
     }
 
     private void downloadModifiedFiles(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
-        List<String> listFilesAfter = syncClient.list(lastSynced, remote);
+        List<RemoteFile> remoteModifiedFiles = syncClient.list(lastSynced, remote);
 
-        String[] parts = remote.getPath().split("/");
-        String delPath = String.join("/", Arrays.copyOfRange(parts, 0, parts.length - 1)) + "/del";
+        for (RemoteFile file : remoteModifiedFiles) {
+            String fullPath = remote.getPath() + "/" + file.getName();
+            File f = local.getFile(file.getName());
 
-        for (String file : listFilesAfter) {
-            long timestamp = Long.parseLong(file.split(" ")[0]);
-            String filename = file.split(" ")[1];
-                String fullPath = remote.getPath() + "/" + filename;
-                File f = local.getFile(filename);
-
-                if (!f.exists() || f.lastModified() <= timestamp) {
-                    String rawFileName = filename.split(":")[0];
-                    File localDelFile = cachedDirs.forPath(delPath).getFile(rawFileName);
-
-                    if (!localDelFile.exists()) {
-                        syncClient.download(fullPath, f);
-                        long time = timestamp * 1000L;
-                        f.setLastModified(time);
-                    }
-
+            if (!f.exists() || f.lastModified() <= file.lastModified()) {
+                syncClient.download(fullPath, f);
+                long time = file.lastModified();
+                f.setLastModified(time);
             }
         }
         local.setLastModified(remote.getLastModified());
-
     }
 
     private void uploadModifiedFiles(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
         File[] listFilesAfter = local.listFilesAfter(lastSynced);
 
-        String[] parts = remote.getPath().split("/");
-        String delPath = String.join("/", Arrays.copyOfRange(parts, 0, parts.length - 1)) + "/del";
         for (File file : listFilesAfter) {
 
             String filename = file.getName();
 
-                String fullPath = remote.getPath() + "/" + filename;
+            String fullPath = remote.getPath() + "/" + filename;
 
-                if (!syncClient.exists(fullPath)) {
-                    String delFilePath = delPath + "/" + filename.split(":")[0];
-                    if (!syncClient.exists(delFilePath)) {
-                        syncClient.upload(fullPath, file);
-                    }
-                }
+            // TODO what about checking peer file's timestamp!!!
+            if (syncClient.exists(fullPath) != null) {
+                syncClient.upload(fullPath, file);
+            }
         }
     }
 
-    private void syncLocalDeletedToRemote(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
-        File[] listFilesAfter = local.listFilesAfter(lastSynced);
+    private void syncNewAndCurFiles(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
+        CachedDir remoteNew = remote.getSubdir("new");
+        CachedDir remoteCur = remote.getSubdir("cur");
+        CachedDir localNew = local.getSubdir("new");
+        CachedDir localCur = local.getSubdir("cur");
 
-        Map<String, Long> toDelete = new HashMap<String, Long>();
-        for (File file : listFilesAfter) {
+        List<RemoteFile> modifiedRemoteFiles = new ArrayList<>();
 
-            long timestamp = file.lastModified();
-            String filename = file.getName();
+        modifiedRemoteFiles.addAll(syncClient.list(lastSynced, remoteNew));
+        modifiedRemoteFiles.addAll(syncClient.list(lastSynced, remoteCur));
 
-                toDelete.put(filename, timestamp);
+        Map<String, RemoteFile> remoteModifications = modifiedRemoteFiles.stream().collect(toMap(rf -> baseFilename(rf.getName()), rf -> rf));
+
+        List<File> modifiedLocalFiles = new ArrayList<>();
+
+        modifiedLocalFiles.addAll(asList(localNew.listFilesAfter(lastSynced)));
+        modifiedLocalFiles.addAll(asList(localCur.listFilesAfter(lastSynced)));
+
+        Map<String, File> localModifications = modifiedLocalFiles.stream().collect(toMap(f -> baseFilename(f.getName()), f -> f));
+
+        Set<String> commonBaseFilenames = new HashSet<>(remoteModifications.keySet());
+        commonBaseFilenames.retainAll(localModifications.keySet());
+
+        Map<String, RemoteFile> remoteCommon = new HashMap<>();
+        Map<String, File> localCommon = new HashMap<>();
+        for (String commonBaseFilename : commonBaseFilenames) {
+            remoteCommon.put(commonBaseFilename, remoteModifications.get(commonBaseFilename));
+            remoteModifications.remove(commonBaseFilename);
+
+            localCommon.put(commonBaseFilename, localModifications.get(commonBaseFilename));
+            localModifications.remove(commonBaseFilename);
         }
 
-        if (!toDelete.isEmpty()) {
-            String[] parts = remote.getPath().split("/");
-            String newPath = String.join("/", Arrays.copyOfRange(parts, 0, parts.length - 1)) + "/new";
-            String curPath = String.join("/", Arrays.copyOfRange(parts, 0, parts.length - 1)) + "/cur";
-
-            for (Entry<String, Long> entry : toDelete.entrySet()) {
-                String filename = entry.getKey();
-                long lastmodified = entry.getValue();
-
-                String newFilePath = newPath + "/" + filename;
-                String curFilePath = curPath + "/" + filename;
-                if (syncClient.exists(newFilePath)) {
-                    syncClient.delete(newFilePath, lastmodified);
-                } else if (syncClient.exists(curFilePath)) {
-                    syncClient.delete(curFilePath, lastmodified);
+        for (Map.Entry<String, RemoteFile> entry : remoteModifications.entrySet()) {
+            String baseFilename = entry.getKey();
+            RemoteFile remoteFile = entry.getValue();
+            File localFile = findMaildirFile(baseFilename, localNew, localCur);
+            if (localFile == null || localFile.length() != remoteFile.length()) {
+                if (remoteFile.getPath().endsWith("new")) {
+                    localFile = localNew.getFile(remoteFile.getName());
+                } else {
+                    localFile = localCur.getFile(remoteFile.getName());
                 }
+                syncClient.download(remoteFile.getPath() + "/" + remoteFile.getName(), localFile);
+                localFile.setLastModified(remoteFile.lastModified());
+            } else if (differentNames(localFile, remoteFile)) {
+                CachedDir localDir = remoteFile.getPath().endsWith("new") ? localNew : localCur;
+
+                File newLocalFile = localDir.getFile(remoteFile.getName());
+                if (!localFile.renameTo(newLocalFile)) {
+                    // TODO how to show error?
+                    // TODO do we need to fix (remove) file from localDir
+                }
+                newLocalFile.setLastModified(remoteFile.lastModified());
+            } else {
+                localFile.setLastModified(remoteFile.lastModified());
+            }
+        }
+
+        for (Map.Entry<String, File> entry : localModifications.entrySet()) {
+            String baseFilename = entry.getKey();
+            File localFile = entry.getValue();
+
+            CachedDir localDir = localFile.getParent().endsWith("new") ? localNew : localCur;
+            RemoteFile remoteFile = syncClient.exists(localDir.getPath() + "/" + baseFilename);
+            if (remoteFile == null || remoteFile.length() != localFile.length()) {
+                syncClient.upload(localDir.getPath() + "/" + localFile.getName(), localFile);
+            } else if (differentNames(localFile, remoteFile)) {
+                syncClient.move(remoteFile.getPath() + "/" + remoteFile.getName(), localDir.getPath() + "/" + localFile.getName(), localFile.lastModified());
+            } else {
+                syncClient.touch(remoteFile.getPath() + "/" + remoteFile.getName(), localFile.lastModified());
+            }
+        }
+
+        for (String baseFilename : commonBaseFilenames) {
+            RemoteFile remoteFile = remoteCommon.get(baseFilename);
+            File localFile = localCommon.get(baseFilename);
+
+            if (remoteFile.lastModified() < localFile.lastModified()) {
+                CachedDir localDir = localFile.getParent().endsWith("new") ? localNew : localCur;
+                if (remoteFile.length() != localFile.length()) {
+                    syncClient.upload(localDir.getPath() + "/" + localFile.getName(), localFile);
+                } else if (differentNames(localFile, remoteFile)) {
+                    syncClient.move(remoteFile.getPath() + "/" + remoteFile.getName(), localDir.getPath() + "/" + localFile.getName(), localFile.lastModified());
+                } else {
+                    syncClient.touch(remoteFile.getPath() + "/" + remoteFile.getName(), localFile.lastModified());
+                }
+            } else if (remoteFile.lastModified() > localFile.lastModified()) {
+                if (localFile.length() != remoteFile.length()) {
+                    if (remoteFile.getPath().endsWith("new")) {
+                        localFile = localNew.getFile(remoteFile.getName());
+                    } else {
+                        localFile = localCur.getFile(remoteFile.getName());
+                    }
+                    syncClient.download(remoteFile.getPath() + "/" + remoteFile.getName(), localFile);
+                    localFile.setLastModified(remoteFile.lastModified());
+                } else if (differentNames(localFile, remoteFile)) {
+                    CachedDir localDir = remoteFile.getPath().endsWith("new") ? localNew : localCur;
+
+                    File newLocalFile = localDir.getFile(remoteFile.getName());
+                    if (!localFile.renameTo(newLocalFile)) {
+                        // TODO how to show error?
+                        // TODO do we need to fix (remove) file from localDir
+                    }
+                    newLocalFile.setLastModified(remoteFile.lastModified());
+                } else {
+                    localFile.setLastModified(remoteFile.lastModified());
+                }
+            } else {
+                if (differentNames(localFile, remoteFile)) {
+                    // TODO Well - what now? Both changed at exact same moment - but different files.
+                    // For now - we favour ourselves
+                    CachedDir localDir = localFile.getParent().endsWith("new") ? localNew : localCur;
+                    syncClient.upload(localDir.getPath() + "/" + localFile.getName(), localFile);
+                }
+            }
+            // TODO
+        }
+    }
+
+    private boolean differentNames(File localFile, RemoteFile remoteFile) {
+        return !localFile.getName().equals(remoteFile.getName())
+                || localFile.getParent().endsWith("new") && remoteFile.getPath().endsWith("cur")
+                || localFile.getParent().endsWith("cur") && remoteFile.getPath().endsWith("new");
+    }
+
+    private File findMaildirFile(String baseFilename, CachedDir localNew, CachedDir localCur) {
+        Optional<File> file = Stream.concat(
+                asList(localNew.listFilesAfter(0)).stream(),
+                asList(localCur.listFilesAfter(0)).stream())
+            .filter(f -> f.getName().startsWith(baseFilename))
+            .findFirst();
+        if (file.isPresent()) {
+            return file.get();
+        }
+        return null;
+    }
+
+    private void syncLocalDeletedToRemote(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
+        File[] localModifiedFiles = local.getSubdir("del").listFilesAfter(lastSynced);
+        CachedDir remoteDel = remote.getSubdir("del");
+
+        if (localModifiedFiles.length > 0) {
+            for (File localFile : localModifiedFiles) {
+                syncClient.delete(remoteDel.getPath() + "/" + localFile.getName(), localFile.lastModified());
             }
         }
     }
 
     private void syncRemoteDeletedToLocal(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
-        // TODO Use a different method of finding if a file exists
-        List<String> listFilesAfter = syncClient.list(lastSynced, remote);
-        for (String listline : listFilesAfter) {
-            long timestamp = Long.parseLong(listline.split(" ")[0]);
-            String filename = listline.split(" ")[1];
-                // delete this file in local
-                File file = local.getFile(filename);
-                File delDir = file.getParentFile();
-                File newDir = new File(delDir.getParent(), "new");
-                File curDir = new File(delDir.getParent(), "cur");
+        List<RemoteFile> remoteDelFiles = syncClient.list(lastSynced, remote.getSubdir("del"));
 
-                FilenameFilter filter = (dir, name) -> name.startsWith(filename);
-
-                String[] newDirList = newDir.list(filter);
-                if (newDirList.length > 0) {
-                    File newFile = new File(newDir, newDirList[0]);
-                    DeleteCommand.deleteFile(newFile, timestamp);
-                }
-
-                String[] curDirList = curDir.list(filter);
-                if (curDirList.length > 0) {
-                    File curFile = new File(curDir, curDirList[0]);
-                    DeleteCommand.deleteFile(curFile, timestamp);
-                }
+        if (remoteDelFiles.size() > 0) {
+            for (RemoteFile remoteFile : remoteDelFiles) {
+                deleteFile(local.getSubdir("del"), local.getSubdir("new"), local.getSubdir("cur"), remoteFile.getName(), remoteFile.lastModified());
             }
+        }
+    }
+
+    private static String baseFilename(String filename) {
+        return filename.split(":")[0];
     }
 
     public CachedDirs getCachedDirs() {
@@ -378,5 +493,29 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
     public void setCachedDirs(CachedDirs cachedDirs) {
         this.cachedDirs = cachedDirs;
+    }
+
+    public URL getKeystoreURL() {
+        return keystoreURL;
+    }
+
+    public void setKeystoreURL(URL keystoreURL) {
+        this.keystoreURL = keystoreURL;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public void setLastSyncedTime(long lastSynced) {
+        this.lastSynced = lastSynced;
+    }
+
+    public long getLastSyncedTime() {
+        return lastSynced;
     }
 }

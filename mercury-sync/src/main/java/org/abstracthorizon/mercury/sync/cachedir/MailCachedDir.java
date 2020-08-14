@@ -95,36 +95,36 @@ public class MailCachedDir extends AbstractSubdirCachedDir {
 
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                      Files.delete(file);
-                      return FileVisitResult.CONTINUE;
+                        Files.delete(file);
+                        return FileVisitResult.CONTINUE;
                     }
 
                     @Override
                     public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                      Files.delete(file);
-                      return FileVisitResult.CONTINUE;
+                        Files.delete(file);
+                        return FileVisitResult.CONTINUE;
                     }
 
                     @Override
                     public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                      if (exc != null) {
-                        throw exc;
-                      }
-                      Files.delete(dir);
-                      return FileVisitResult.CONTINUE;
+                        if (exc != null) {
+                            throw exc;
+                        }
+                        Files.delete(dir);
+                        return FileVisitResult.CONTINUE;
                     }
-                  };
-                  Files.walkFileTree(subdir.toPath(), visitor);
+                };
+                Files.walkFileTree(subdir.toPath(), visitor);
 
-                  // Add to deleted dirs
-                  File deletedDirs = new File(getParent().getRootFile(), ".deleted_dirs");
-                  if (!deletedDirs.exists()) {
-                      try (FileOutputStream out = new FileOutputStream(deletedDirs)) {
-                      }
-                      }
+                // Add to deleted dirs
+                File deletedDirs = new File(getParent().getRootFile(), ".deleted_dirs");
+                if (!deletedDirs.exists()) {
+                    try (FileOutputStream out = new FileOutputStream(deletedDirs)) {
+                    }
+                }
 
-                  String line = (System.currentTimeMillis() / 1000) + " " + getPath() + "/" + dirname + "\n";
-                  Files.write(deletedDirs.toPath(), line.getBytes(), StandardOpenOption.APPEND);
+                String line = (System.currentTimeMillis() / 1000) + " " + getPath() + "/" + dirname + "\n";
+                Files.write(deletedDirs.toPath(), line.getBytes(), StandardOpenOption.APPEND);
             }
         }
         subDirs.remove(dirname);
@@ -195,8 +195,7 @@ public class MailCachedDir extends AbstractSubdirCachedDir {
 
     @Override
     public void addFile(File file) {
-        List<File> cachedFiles = cachedFiles();
-        cachedFiles.add(file);
+        cachedFiles().add(file);
     }
 
     @Override
@@ -205,6 +204,9 @@ public class MailCachedDir extends AbstractSubdirCachedDir {
         for (int i = 0; i < cachedFiles.size(); i++) {
             if (cachedFiles.get(i).getName().equals(file.getName())) {
                 cachedFiles.remove(i);
+                if (file.exists() && !file.delete()) {
+                    throw new RuntimeException(new IOException("Cannot remove " + file.getAbsolutePath()));
+                }
                 return true;
             }
         }

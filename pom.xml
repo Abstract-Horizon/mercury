@@ -284,6 +284,11 @@
         <artifactId>mercury-admin-console</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>org.abstracthorizon.mercury</groupId>
+        <artifactId>mercury-sync</artifactId>
+        <version>${project.version}</version>
+      </dependency>
 <!--
       <dependency>
         <groupId>org.abstracthorizon.mercury</groupId>

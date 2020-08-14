@@ -19,6 +19,7 @@ import java.net.ServerSocket;
 import org.abstracthorizon.danube.service.server.MultiThreadServerSSLSocketService;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
 import org.abstracthorizon.mercury.sync.client.SyncClient;
+import org.abstracthorizon.mercury.sync.client.SyncClient.RemoteFile;
 import org.abstracthorizon.mercury.sync.commands.SyncCommandFactory;
 
 public class MercuryTestSyncSetup {
@@ -62,7 +63,7 @@ public class MercuryTestSyncSetup {
 
     public MercuryDirSetup getServerDirSetup() throws IOException {
         if (serverDirSetup == null) {
-            serverDirSetup = new MercuryDirSetup();
+            serverDirSetup = new MercuryDirSetup("remote");
             serverDirSetup.create();
         }
         return serverDirSetup;
@@ -70,7 +71,7 @@ public class MercuryTestSyncSetup {
 
     public MercuryDirSetup getLocalDirSetup() throws IOException {
         if (localDirSetup == null) {
-            localDirSetup = new MercuryDirSetup();
+            localDirSetup = new MercuryDirSetup("local");
             localDirSetup.create();
         }
         return localDirSetup;
@@ -106,6 +107,8 @@ public class MercuryTestSyncSetup {
 
         syncConnectionHandler = new SyncConnectionHandler();
         syncConnectionHandler.setCachedDirs(serverCachedDirs);
+        syncConnectionHandler.setKeystoreURL(getClass().getResource("/localhost.keystore")); // TODO!!!
+        syncConnectionHandler.setPassword("password1234");
 
         service.setConnectionHandler(syncConnectionHandler);
 
@@ -128,17 +131,19 @@ public class MercuryTestSyncSetup {
         syncClient.connect();
     }
 
-    public void duplicateServerSetup() throws IOException {
+    public void duplicateServerSetup(String newName) throws IOException {
         if (localDirSetup != null) {
             localDirSetup.cleanup();
         }
 
-        localDirSetup = serverDirSetup.duplicate();
+        localDirSetup = serverDirSetup.duplicate(newName);
     }
 
     public void cleanup() throws IOException {
 
-        syncClient.disconnect();
+        if (syncClient != null) {
+            syncClient.disconnect();
+        }
         try {
             service.stop();
         } catch (Exception e) {
@@ -157,8 +162,8 @@ public class MercuryTestSyncSetup {
         }
     }
 
-    public static String listLine(File file) {
-        return (file.lastModified() / 1000) + " " + file.getName();
+    public static RemoteFile listLine(File file) {
+        return new RemoteFile(file.lastModified(), file.length(), "", file.getName());
     }
 
     public static String dirLine(File root, File file) {

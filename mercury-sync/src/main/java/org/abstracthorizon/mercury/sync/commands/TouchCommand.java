@@ -55,21 +55,21 @@ public class TouchCommand extends SyncCommand {
             long now = System.currentTimeMillis();
 
             try (Scanner scanner = new Scanner(cmdLine)) {
-            scanner.useDelimiter(" ");
-            if (!scanner.hasNextLong()) {
-                connection.sendResponse(SyncResponses.getSyntaxErrorResponse(command, "need from timestmap"));
-                return;
-            }
-            long lastModified  = scanner.nextLong();
+                scanner.useDelimiter(" ");
+                if (!scanner.hasNextLong()) {
+                    connection.sendResponse(SyncResponses.getSyntaxErrorResponse(command, "need from timestmap"));
+                    return;
+                }
+                long lastModified  = scanner.nextLong();
 
-            String path = scanner.nextLine();
-            if (path.startsWith(" ")) {
-                path = path.substring(1);
-            }
+                String path = scanner.nextLine();
+                if (path.startsWith(" ")) {
+                    path = path.substring(1);
+                }
 
-            CachedDirs cachedDirs = connection.getCachedDirs();
-            CachedDir cachedDir = cachedDirs.forPath(path);
-            cachedDir.setLastModified(lastModified * 1000);
+                CachedDirs cachedDirs = connection.getCachedDirs();
+                CachedDir cachedDir = cachedDirs.forPath(path);
+                cachedDir.setLastModified(lastModified * 1000);
             }
             connection.sendResponse(SyncResponses.getCommandReadyResponse("TOUCH", now));
         } catch (FileNotFoundException notFound) {

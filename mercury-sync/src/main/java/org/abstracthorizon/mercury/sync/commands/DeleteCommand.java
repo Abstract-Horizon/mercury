@@ -12,11 +12,11 @@
  */
 package org.abstracthorizon.mercury.sync.commands;
 
+import static java.util.Arrays.asList;
 import static org.abstracthorizon.mercury.sync.commands.GetCommand.checkIfMaildirPath;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.Scanner;
@@ -65,7 +65,7 @@ public class DeleteCommand extends SyncCommand {
                     connection.sendResponse(SyncResponses.getSyntaxErrorResponse(command, "need from timestmap"));
                     return;
                 }
-                long lastModified = scanner.nextLong();
+                long lastModified = scanner.nextLong() * 1000L;
 
                 String path = scanner.nextLine();
                 if (path.startsWith(" ")) {
@@ -94,17 +94,29 @@ public class DeleteCommand extends SyncCommand {
 
                 File file = selectedDirectory.getFile(filename);
 
-                if (file == null || !file.exists()) {
-                    connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
-                    return;
-                }
+                if (selectedDirectory.getName().equals("del") || selectedDirectory.getName().equals("new") || selectedDirectory.getName().equals("cur")) {
+                    CachedDir delDir = cachedDirs.forPath(path.substring(0, path.length() - 3) + "del");
+                    CachedDir newDir = cachedDirs.forPath(path.substring(0, path.length() - 3) + "new");
+                    CachedDir curDir = cachedDirs.forPath(path.substring(0, path.length() - 3) + "cur");
 
-                boolean deleted = deleteFile(file, lastModified);
-                if (!deleted) {
-                    connection.sendResponse(SyncResponses.CANNOT_DELETE);
-                    return;
+                    deleteFile(delDir, newDir, curDir, filename, lastModified);
+                } else {
+                    if (file == null || !file.exists()) {
+                        connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
+                        return;
+                    }
+
+                    try {
+                        if (!selectedDirectory.deleteFile(file)) {
+                            connection.sendResponse(SyncResponses.CANNOT_DELETE);
+                            return;
+                        }
+                        file.setLastModified(lastModified);
+                    } catch (Exception e2) {
+                        connection.sendResponse(SyncResponses.CANNOT_DELETE);
+                        return;
+                    }
                 }
-                selectedDirectory.deleteFile(file);
 
                 connection.sendResponse(SyncResponses.getCommandReadyResponse("DELETE", now));
             }
@@ -126,9 +138,32 @@ public class DeleteCommand extends SyncCommand {
         }
     }
 
+    public static void deleteFile(CachedDir delDir, CachedDir newDir, CachedDir curDir, String filename, long lastModified) throws IOException {
+        String baseFilename = filename.split(":")[0];
+
+        asList(newDir.listFilesAfter(0))
+            .stream()
+            .filter(f -> f.getName().startsWith(baseFilename))
+            .forEach(newDir::deleteFile);
+
+        asList(curDir.listFilesAfter(0))
+            .stream()
+            .filter(f -> f.getName().startsWith(baseFilename))
+            .forEach(curDir::deleteFile);
+
+        File delFile = delDir.getFile(baseFilename);
+        if (!delFile.exists()) {
+            delFile.createNewFile();
+            delFile.setLastModified(lastModified);
+            delDir.addFile(delFile);
+        } else {
+            delFile.setLastModified(lastModified);
+        }
+    }
+
     // TODO put this deleting thing somewhere else (so it isnt invoced statically by SyncConnectionHandler for local deleting)
-    public static boolean deleteFile(File file, long lastModified) throws FileNotFoundException, IOException {
-        if (file.getParentFile().getName().equals("cur") || file.getParentFile().getName().equals("new")) {
+    public static boolean xdeleteFile(File file, long lastModified) throws FileNotFoundException, IOException {
+        if (file.getParentFile().getName().equals("cur") || file.getParentFile().getName().equals("new") || file.getParentFile().getName().equals("del")) {
             String name = file.getName();
             int i = name.indexOf(':');
             if (i >= 0) {
@@ -139,14 +174,11 @@ public class DeleteCommand extends SyncCommand {
             // touch the del file
             File delFile = new File(deldir, name);
             if (!delFile.exists()) {
-                try (FileOutputStream out = new FileOutputStream(delFile)) {
-                }
+                delFile.createNewFile();
             }
 
             delFile.setLastModified(lastModified * 1000);
-
             // TODO add the del file to cached dirs
-
         } else {
 
         }

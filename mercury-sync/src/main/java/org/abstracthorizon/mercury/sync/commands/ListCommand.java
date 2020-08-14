@@ -80,7 +80,7 @@ public class ListCommand extends SyncCommand {
                 if (files != null) {
                     List<String> response = new ArrayList<String>();
                     for (File f : files) {
-                        response.add((f.lastModified() / 1000) + " " + f.getName());
+                        response.add((f.lastModified() / 1000) + " " + f.length() +  " " + f.getName());
                     }
 
                     connection.sendResponse(new ListResponse(response.toArray(new String[response.size()])));

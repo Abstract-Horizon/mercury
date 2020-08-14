@@ -51,7 +51,9 @@ public class SyncCommandFactory extends ServerConnectionHandler {
      */
     public SyncCommandFactory() {
         commands.put("GET", new GetCommand());
+        commands.put("EXISTS", new ExistsCommand());
         commands.put("PUT", new PutCommand());
+        commands.put("MOVE", new MoveCommand());
         commands.put("LIST", new ListCommand());
         commands.put("DELETE", new DeleteCommand());
         commands.put("DIR", new DirCommand());
@@ -135,11 +137,6 @@ public class SyncCommandFactory extends ServerConnectionHandler {
         if ((System.currentTimeMillis() - session.getSessionAccessed()) > getInactivityTimeout()) {
             return false;
         }
-
-//        SMTPSession syncConnection = (SMTPSession)connection.adapt(SMTPSession.class);
-//        if (syncConnection.getState() == SMTPSession.STATE_CONNECTED) {
-//            persistConnection = false;
-//        }
         persistConnection = !session.isDropConnection() && persistConnection;
 
         return persistConnection;

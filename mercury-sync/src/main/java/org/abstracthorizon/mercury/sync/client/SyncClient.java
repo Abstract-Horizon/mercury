@@ -22,8 +22,12 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 
 import javax.net.SocketFactory;
@@ -307,17 +311,30 @@ public class SyncClient {
         }
     }
 
-    public List<String> list(long since, CachedDir path) throws IOException {
-
+    public List<RemoteFile> list(long since, CachedDir path) throws IOException {
         return list(since, path.getPath());
     }
 
-    public List<String> list(long since, String path) throws IOException {
-        List<String> list = new ArrayList<String>();
+    public List<RemoteFile> list(long since, String path) throws IOException {
+        List<RemoteFile> list = new ArrayList<>();
         writeLine("LIST " + since + " " + path);
         String line = readLine();
         while (line.startsWith(" ")) {
-            list.add(line.substring(1));
+            String[] parts = line.split(" ");
+            long timestamp;
+            long length;
+            try {
+                timestamp = Long.parseLong(parts[1]) * 1000L;
+            } catch (NumberFormatException e) {
+                throw new IOException("Problem parsing file timestamp; '" + parts[1] + "' from " + line, e);
+            }
+            try {
+                length = Long.parseLong(parts[2]);
+            } catch (NumberFormatException e) {
+                throw new IOException("Problem parsing file length; '" + parts[2] + "' from " + line, e);
+            }
+            RemoteFile remoteFile = new RemoteFile(timestamp, length, path, parts[3]);
+            list.add(remoteFile);
             line = readLine();
         }
         if (!line.startsWith("READY")) {
@@ -402,8 +419,17 @@ public class SyncClient {
         }
     }
 
-    public boolean exists(String fullPath) throws IOException {
-        writeLine("GET " + fullPath);
+    public void move(String fromFullPath, String toFullPath, long newTime) throws IOException {
+        writeLine("MOVE " + newTime + " " + fromFullPath + " " + toFullPath);
+
+        String line = readLine();
+        if (!line.startsWith("READY")) {
+            throw new IOException(line);
+        }
+    }
+
+    public RemoteFile exists(String fullPath) throws IOException {
+        writeLine("EXISTS " + fullPath);
 
         // TODO Not a very efficient way of doing this, maybe have a separate command for this
         // or use cached dir's files
@@ -418,33 +444,26 @@ public class SyncClient {
                 String response = scanner.next();
 
                 if ("FILE".equals(response)) {
-
-                    @SuppressWarnings("unused")
                     long lastModified = scanner.nextLong();
                     int size = scanner.nextInt();
-
-                    InputStream in = getInputStream();
-                    byte[] buf = new byte[10240];
-                    int l = Math.min(buf.length, size);
-
-                    int r = in.read(buf, 0, l);
-                    while (r > 0 && size > 0) {
-                        size = size - r;
-                        l = Math.min(buf.length, size);
-                        r = in.read(buf, 0, l);
-                    }
+                    String fileFullPathAndFilename = scanner.next();
 
                     line = readLine();
                     if (!line.startsWith("READY")) {
                         throw new IOException(line);
                     }
-                    return true;
+
+                    String[] parts = fileFullPathAndFilename.split("/");
+                    String filename = parts[parts.length - 1];
+                    String path = String.join("/", String.join("/", Arrays.copyOfRange(parts, 0, parts.length - 1)));
+
+                    return new RemoteFile(lastModified, size, path, filename);
                 } else {
                     throw new IOException(response);
                 }
             }
         }
-        return false;
+        return null;
     }
 
     public void delete(String fullpath, long deletedTime) throws IOException {
@@ -544,4 +563,61 @@ public class SyncClient {
         return cachedDirs;
     }
 
+    public static class RemoteFile {
+        private String path;
+        private String name;
+        private long length;
+        private long timestamp;
+
+        public RemoteFile(long timestamp, long length, String path, String name) {
+            this.timestamp = timestamp;
+            this.length = length;
+            this.path = path;
+            this.name = name;
+        }
+
+        public String getPath() { return path; }
+        public String getName() { return name; }
+
+        public long lastModified() { return timestamp; }
+        public long length() { return length; }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + (int) (length ^ (length >>> 32));
+            result = prime * result + ((path == null) ? 0 : path.hashCode());
+            result = prime * result + ((name == null) ? 0 : name.hashCode());
+            result = prime * result + (int) (timestamp ^ (timestamp >>> 32));
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) { return true; }
+            if (obj == null) { return false; }
+            if (getClass() != obj.getClass()) { return false; }
+            RemoteFile other = (RemoteFile) obj;
+            if (length != other.length) { return false; }
+            if (path == null) {
+                if (other.path != null) { return false; }
+            } else if (!path.equals(other.path)) {
+                return false;
+            }
+            if (name == null) {
+                if (other.name != null) { return false; }
+            } else if (!name.equals(other.name)) {
+                return false;
+            }
+            if (timestamp != other.timestamp) {
+                return false;
+            }
+            return true;
+        }
+
+        public String toString() {
+            return path + "/" + name + "(" + length + ", " + new SimpleDateFormat("yyyyMMdd HH:mm:ss.h").format(new Date(timestamp)) + ")";
+        }
+    }
 }

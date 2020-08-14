@@ -13,6 +13,7 @@
 package org.abstracthorizon.mercury.sync;
 
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
 import static org.abstracthorizon.mercury.sync.MercuryTestSyncSetup.dirLine;
 import static org.abstracthorizon.mercury.sync.MercuryTestSyncSetup.listLine;
 import static org.abstracthorizon.mercury.sync.MercuryTestSyncSetup.sleep1ms;
@@ -24,10 +25,10 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
+import org.abstracthorizon.mercury.sync.client.SyncClient.RemoteFile;
 import org.junit.Test;
 
 public class TestSyncClient {
@@ -96,10 +97,10 @@ public class TestSyncClient {
 
             setup.getServerCachedDirs().refresh();
 
-            List<String> list = setup.getSyncClient().list(0, setup.getServerCachedDirs().forPath("testmailbox2/.testfolder2/new"));
+            List<RemoteFile> list = setup.getSyncClient().list(0, setup.getServerCachedDirs().forPath("testmailbox2/.testfolder2/new")).stream()
+                    .map(f -> new RemoteFile(f.lastModified(), f.length(), "", f.getName())).collect(toList());
 
-            assertEquals(Arrays.asList(new String[] { listLine(msg2), listLine(msg3) }), list);
-
+            assertEquals(asList(listLine(msg2), listLine(msg3)), list);
         } finally {
             setup.cleanup();
         }
@@ -132,7 +133,6 @@ public class TestSyncClient {
         }
     }
 
-
     @Test
     public void testPut() throws IOException {
         MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
@@ -151,6 +151,34 @@ public class TestSyncClient {
 
             String originalContent = loadFile(msg2);
             String uploadedContent = loadFile(uploadedFile);
+
+            assertEquals(originalContent, uploadedContent);
+        } finally {
+            setup.cleanup();
+        }
+    }
+
+    @Test
+    public void testMove() throws IOException {
+        MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
+        try {
+            setup.create();
+            long time1 = System.currentTimeMillis() - 20000;
+            long time2 = System.currentTimeMillis() - 10000;
+
+            File msg1 = setup.getServerDirSetup().createMessage("testmailbox1", ".testfolder1", "new", null);
+            msg1.setLastModified(time1);
+
+            String originalContent = loadFile(msg1);
+
+            setup.getServerCachedDirs().refresh();
+
+            setup.getSyncClient().move("testmailbox1/.testfolder1/new/" + msg1.getName(), "testmailbox1/.testfolder1/new/1234567890", time2);
+
+            File movedFile = new File(msg1.getParentFile(), "1234567890");
+            assertTrue("Cannot find uploaded file " + movedFile.getAbsolutePath(), movedFile.exists());
+
+            String uploadedContent = loadFile(movedFile);
 
             assertEquals(originalContent, uploadedContent);
         } finally {
@@ -256,9 +284,9 @@ public class TestSyncClient {
             File remoteFile = File.createTempFile("downloaded-file", ".msg");
             remoteFile.deleteOnExit();
             try {
-                boolean exists = setup.getSyncClient().exists("testmailbox2/.testfolder2/new/" + msg2.getName());
+                RemoteFile exists = setup.getSyncClient().exists("testmailbox2/.testfolder2/new/" + msg2.getName());
 
-                assertTrue("File should exist, but returned that it doesn't", exists);
+                assertTrue("File should exist, but returned that it doesn't", exists != null);
             } finally {
                 remoteFile.delete();
             }

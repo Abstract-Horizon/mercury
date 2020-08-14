@@ -33,7 +33,7 @@ public class TestMercurySetup {
     }
 
     public void setupDir() throws IOException {
-        mercuryDirSetup = new MercuryDirSetup();
+        mercuryDirSetup = new MercuryDirSetup("local");
         tempDir = mercuryDirSetup.create();
         mercuryDirSetup.getMailboxes().mkdir();
         System.out.println(tempDir.getAbsolutePath());

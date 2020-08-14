@@ -24,8 +24,12 @@ public class JavamailTransport implements Transport {
     @Override
     public void send(MimeMessage message, List<Path> destinations, Path source) throws MessagingException {
         Properties props = System.getProperties();
-        props.setProperty("mail.smtps.starttls.enable", "true");
-        props.setProperty("mail.smtps.auth", "true");
+        if (ssl) {
+            props.setProperty("mail.smtps.starttls.enable", "true");
+        }
+        if (username != null) {
+            props.setProperty("mail.smtps.auth", "true");
+        }
         props.setProperty("mail.from", source.toMailboxString());
         props.setProperty("mail.mime.address.strict", "false");
 
@@ -55,7 +59,7 @@ public class JavamailTransport implements Transport {
             tos[i] = new InternetAddress(path.toMailboxString());
         }
 
-        javax.mail.Transport transport = session.getTransport("smtps");
+        javax.mail.Transport transport = ssl ? session.getTransport("smtps") : session.getTransport("smtp");
         transport.connect(getHost(), getPort(), getUsername(), getPassword());
         transport.sendMessage(message, tos);
         transport.close();

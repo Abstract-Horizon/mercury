@@ -13,10 +13,13 @@
 package org.abstracthorizon.mercury.sync;
 
 import static org.abstracthorizon.mercury.sync.MercuryDirSetup.compareRecursively;
+import static org.abstracthorizon.mercury.sync.MercuryDirSetup.testForDeletedAndDuplicates;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,12 +39,15 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
         } finally {
@@ -61,12 +67,15 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
         } finally {
@@ -86,12 +95,15 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
         } finally {
@@ -100,7 +112,7 @@ public class TestSyncProcess {
     }
 
     @Test
-    public void testDeletedFromRemote() throws IOException, InterruptedException {
+    public void testDeletedNewFromRemote() throws IOException, InterruptedException {
         MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
         try {
             setup.create();
@@ -114,12 +126,15 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
             assertTrue("Local message still exists", !localMessage.exists());
@@ -130,7 +145,7 @@ public class TestSyncProcess {
     }
 
     @Test
-    public void testDeletedFromLocal() throws IOException, InterruptedException {
+    public void testDeletedNewFromLocal() throws IOException, InterruptedException {
         MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
         try {
             setup.create();
@@ -145,12 +160,81 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
+
+            assertTrue("Got errors\n" + join(result), result.isEmpty());
+            assertTrue("Remote message still exists", !remoteMessage.exists());
+        } finally {
+            setup.cleanup();
+        }
+    }
+
+    @Test
+    public void testDeletedCurFromRemote() throws IOException, InterruptedException {
+        MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
+        try {
+            setup.create();
+            createTypical(setup);
+            long currentTimeMillis = System.currentTimeMillis();
+            File localMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", currentTimeMillis);
+            File remoteMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", currentTimeMillis);
+            setup.getServerDirSetup().deleteMessage(remoteMessage);
+            assertTrue("Remote message still exists", !remoteMessage.exists());
+
+            CachedDirs localCachedDirs = new CachedDirs();
+            localCachedDirs.setRootFile(setup.getLocalMailboxes());
+
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
+
+            Thread.sleep(2);
+            syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
+
+            List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
+
+            assertTrue("Got errors\n" + join(result), result.isEmpty());
+            assertTrue("Local message still exists", !localMessage.exists());
+
+        } finally {
+            setup.cleanup();
+        }
+    }
+
+    @Test
+    public void testDeletedCurFromLocal() throws IOException, InterruptedException {
+        MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
+        try {
+            setup.create();
+            createTypical(setup);
+            long currentTimeMillis = System.currentTimeMillis();
+            File localMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", currentTimeMillis);
+            File remoteMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", currentTimeMillis);
+
+            setup.getLocalDirSetup().deleteMessage(localMessage);
+            assertTrue("Local message still exists", !localMessage.exists());
+
+            CachedDirs localCachedDirs = new CachedDirs();
+            localCachedDirs.setRootFile(setup.getLocalMailboxes());
+
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
+
+            Thread.sleep(2);
+            syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
+
+            List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
             assertTrue("Remote message still exists", !remoteMessage.exists());
@@ -171,12 +255,15 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
         } finally {
@@ -196,12 +283,15 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
         } finally {
@@ -223,12 +313,15 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
         } finally {
@@ -238,7 +331,7 @@ public class TestSyncProcess {
     }
 
     @Test
-    public void testNewFolderPopulationInLocal() throws IOException {
+    public void testNewFolderPopulationInLocal() throws IOException, InterruptedException {
         MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
         try {
             setup.create();
@@ -251,12 +344,15 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
 
             assertTrue("Got errors\n" + join(result), result.isEmpty());
         } finally {
@@ -265,7 +361,91 @@ public class TestSyncProcess {
     }
 
     @Test
-    public void testDeletedDirRemote() throws IOException {
+    public void testNewToCurFolderRemote() throws IOException, InterruptedException {
+        MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
+        try {
+            setup.create();
+            createTypical(setup);
+
+            Thread.sleep(1200);
+
+            long lastSyncedTime = System.currentTimeMillis() - 10000;
+
+            setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+            setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
+            File newMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime - 10000);
+            File tempCurMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "cur", null, lastSyncedTime - 10000);
+            File curMessage = new File(tempCurMessage.getParent(), newMessage.getName() + ":2,S");
+
+            tempCurMessage.delete();
+            copyFile(newMessage, curMessage);
+
+            curMessage.setLastModified(lastSyncedTime + 10000);
+
+            Thread.sleep(1000);
+            CachedDirs localCachedDirs = new CachedDirs();
+            localCachedDirs.setRootFile(setup.getLocalMailboxes());
+
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
+            syncConnectionHandler.setLastSyncedTime(lastSyncedTime);
+
+            Thread.sleep(2);
+            syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
+
+            List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
+
+            assertTrue("Got errors\n" + join(result), result.isEmpty());
+        } finally {
+            setup.cleanup();
+        }
+    }
+
+    @Test
+    public void testNewToCurFolderLocal() throws IOException, InterruptedException {
+        MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
+        try {
+            setup.create();
+            createTypical(setup);
+
+            long lastSyncedTime = System.currentTimeMillis() - 100000;
+
+            setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
+            setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+            File newMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime - 100000);
+            File tempCurMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "cur", null, lastSyncedTime - 100000);
+            File curMessage = new File(tempCurMessage.getParent(), newMessage.getName() + ":2,S");
+
+            tempCurMessage.delete();
+            copyFile(newMessage, curMessage);
+
+            curMessage.setLastModified(lastSyncedTime + 100000);
+
+            Thread.sleep(1000);
+            CachedDirs localCachedDirs = new CachedDirs();
+            localCachedDirs.setRootFile(setup.getLocalMailboxes());
+
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
+            syncConnectionHandler.setLastSyncedTime(lastSyncedTime);
+
+            Thread.sleep(2);
+            syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
+
+            List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+            testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
+            testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
+
+            assertTrue("Got errors\n" + join(result), result.isEmpty());
+        } finally {
+            setup.cleanup();
+        }
+    }
+
+    @Test
+    public void testDeletedDirRemote() throws IOException, InterruptedException {
         MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
         try {
             setup.create();
@@ -286,10 +466,11 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
 
@@ -302,7 +483,7 @@ public class TestSyncProcess {
     }
 
     @Test
-    public void testDeletedDirLocal() throws IOException {
+    public void testDeletedDirLocal() throws IOException, InterruptedException {
         MercuryTestSyncSetup setup = new MercuryTestSyncSetup();
         try {
             setup.create();
@@ -323,10 +504,11 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
 
@@ -360,10 +542,10 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
-
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             assertTrue("Remote Folder was not deleted", !remoteFolder.exists());
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
@@ -376,7 +558,9 @@ public class TestSyncProcess {
 
             assertTrue("Remote Folder was not created", newRemoteFolder.exists());
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result2 = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
 
@@ -412,10 +596,11 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             assertTrue("Local Folder was not deleted", !localFolder.exists());
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
@@ -428,7 +613,9 @@ public class TestSyncProcess {
 
             assertTrue("Local Folder was not created", newLocalFolder.exists());
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result2 = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
 
@@ -466,10 +653,11 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
 
@@ -508,10 +696,11 @@ public class TestSyncProcess {
             CachedDirs localCachedDirs = new CachedDirs();
             localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
-            SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
-            syncConnectionHandler.setCachedDirs(localCachedDirs);
+            SyncConnectionHandler syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
 
+            Thread.sleep(2);
             syncConnectionHandler.syncWith("localhost", setup.getPort());
+            Thread.sleep(2);
 
             List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
 
@@ -611,7 +800,15 @@ public class TestSyncProcess {
 
         setup.getServerDirSetup().createMessage("testmailbox2", ".testfolder2", "cur", null);
 
-        setup.duplicateServerSetup();
+        setup.duplicateServerSetup("local");
+    }
+
+    private SyncConnectionHandler createSyncConnectionHandler(CachedDirs localCachedDirs) {
+        SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
+        syncConnectionHandler.setCachedDirs(localCachedDirs);
+        syncConnectionHandler.setKeystoreURL(getClass().getResource("/localhost.keystore"));
+        syncConnectionHandler.setPassword("password1234");
+        return syncConnectionHandler;
     }
 
     public static String join(List<String> list) {
@@ -620,5 +817,19 @@ public class TestSyncProcess {
             res.append(s).append('\n');
         }
         return res.toString();
+    }
+
+    public static void copyFile(File newMessage, File curMessage) throws IOException {
+        try (FileInputStream fis = new FileInputStream(newMessage);
+                FileOutputStream fos = new FileOutputStream(curMessage)) {
+            byte[] buf = new byte[10240];
+            int r = fis.read(buf);
+            while (r > 0) {
+                fos.write(buf, 0, r);
+                r = fis.read(buf);
+            }
+        }
+        // TODO Auto-generated method stub
+
     }
 }

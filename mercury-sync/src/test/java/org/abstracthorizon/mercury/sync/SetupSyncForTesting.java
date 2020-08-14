@@ -23,6 +23,7 @@ import org.abstracthorizon.danube.service.server.MultiThreadServerSSLSocketServi
 import org.abstracthorizon.mercury.sync.cachedir.CachedDir;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
 import org.abstracthorizon.mercury.sync.client.SyncClient;
+import org.abstracthorizon.mercury.sync.client.SyncClient.RemoteFile;
 import org.abstracthorizon.mercury.sync.commands.SyncCommandFactory;
 
 public class SetupSyncForTesting {
@@ -44,6 +45,8 @@ public class SetupSyncForTesting {
 
             SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
             service.setConnectionHandler(syncConnectionHandler);
+            syncConnectionHandler.setKeystoreURL(SetupSyncForTesting.class.getResource("/localhost.keystore")); // TODO!!!
+            syncConnectionHandler.setPassword("password1234");
 
             SyncCommandFactory syncCommandFactory = new SyncCommandFactory();
             syncConnectionHandler.setConnectionHandler(syncCommandFactory);
@@ -80,14 +83,13 @@ public class SetupSyncForTesting {
 
                 System.out.println("-- LIST --------------------------------------------------------------------------");
 
-                List<String> list1 = list("sendula.com/daniel/.inbox/cur", 1526113317915L, syncClient);
+                List<RemoteFile> list1 = list("sendula.com/daniel/.inbox/cur", 1526113317915L, syncClient);
 
                 System.out.println("-- GET ---------------------------------------------------------------------------");
-                String filename = list1.get(0).split(" ")[1];
 
-                File localFile = File.createTempFile(filename, ".tmp");
+                File localFile = File.createTempFile(list1.get(0).getName(), ".tmp");
                 localFile.deleteOnExit();
-                syncClient.download("sendula.com/daniel/.inbox/cur/" + filename, localFile);
+                syncClient.download("sendula.com/daniel/.inbox/cur/" + list1.get(0).getName(), localFile);
 
                 String mail = loadFile(localFile);
                 System.out.println(mail);
@@ -98,8 +100,8 @@ public class SetupSyncForTesting {
 
                 System.out.println("-- LIST --------------------------------------------------------------------------");
 
-                List<String> list2 = list("sendula.com/daniel/.inbox/cur", 1526113317915L, syncClient);
-                if (!list2.get(list2.size() - 1).equals("new-file")) {
+                List<RemoteFile> list2 = list("sendula.com/daniel/.inbox/cur", 1526113317915L, syncClient);
+                if (!list2.get(list2.size() - 1).getName().equals("new-file")) {
                     System.err.println("Failed to upload file 'new-file'");
                 }
                 System.out.println("-- DELETE ------------------------------------------------------------------------");
@@ -108,7 +110,7 @@ public class SetupSyncForTesting {
 
                 System.out.println("-- LIST --------------------------------------------------------------------------");
 
-                List<String> list3 = list("sendula.com/daniel/.inbox/cur", 1526113317915L, syncClient);
+                List<RemoteFile> list3 = list("sendula.com/daniel/.inbox/cur", 1526113317915L, syncClient);
                 if (list3.size() != list1.size()) {
                     System.err.println("Failed to delete file 'new-file'");
                 }
@@ -138,11 +140,11 @@ public class SetupSyncForTesting {
         }
     }
 
-    private static List<String> list(String path, long since, SyncClient syncClient) throws FileNotFoundException, IOException {
+    private static List<RemoteFile> list(String path, long since, SyncClient syncClient) throws FileNotFoundException, IOException {
         CachedDir inbox = syncClient.getCachedDirs().forPath(path);
-        List<String> list = syncClient.list(since, inbox);
-        for (String l : list) {
-            System.out.println(l);
+        List<RemoteFile> list = syncClient.list(since, inbox);
+        for (RemoteFile f : list) {
+            System.out.println(f);
         }
         return list;
     }

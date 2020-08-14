@@ -12,6 +12,11 @@
  */
 package org.abstracthorizon.mercury.sync;
 
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 import static org.abstracthorizon.mercury.sync.TestUtils.extractMessageName;
 
 import java.io.File;
@@ -19,8 +24,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -34,10 +41,14 @@ public class MercuryDirSetup {
     private File mailboxes;
     private CachedDirs cachedDirs;
 
-    public MercuryDirSetup() {
+    private String name;
+
+    public MercuryDirSetup(String name) {
+        this.name = name;
     }
 
-    private MercuryDirSetup(File tempDir) {
+    private MercuryDirSetup(String name, File tempDir) {
+        this.name = name;
         this.tempDir = tempDir;
         this.mailboxes = new File(tempDir, "mailboxes");
     }
@@ -55,7 +66,7 @@ public class MercuryDirSetup {
     }
 
     public File create() throws IOException {
-        tempDir = File.createTempFile("mercury-sync", ".test-dir");
+        tempDir = File.createTempFile("mercury-" + name, ".test-dir");
         if (!tempDir.delete()) {
             throw new IOException("Cannot delete temp file " + tempDir.getAbsolutePath());
         }
@@ -72,7 +83,7 @@ public class MercuryDirSetup {
         return tempDir;
     }
 
-    public MercuryDirSetup duplicate() throws IOException {
+    public MercuryDirSetup duplicate(String newName) throws IOException {
         File duplicateTempDir = File.createTempFile("mercury-sync", ".test-dir");
         if (!duplicateTempDir.delete()) {
             throw new IOException("Cannot delete temp file " + duplicateTempDir.getAbsolutePath());
@@ -84,7 +95,7 @@ public class MercuryDirSetup {
 
         copyRecursively(tempDir, duplicateTempDir);
 
-        return new MercuryDirSetup(duplicateTempDir);
+        return new MercuryDirSetup(newName, duplicateTempDir);
     }
 
     public File createMailbox(String mailbox) throws IOException {
@@ -135,11 +146,11 @@ public class MercuryDirSetup {
     }
 
     public File createMessage(String mailbox, String folder) throws IOException {
-        return createMessage(mailbox, folder, "cur", null, System.currentTimeMillis());
+        return createMessage(mailbox, folder, "cur", null, System.currentTimeMillis() - 20000);
     }
 
     public File createMessage(String mailbox, String folder, String dirName, String flags) throws IOException {
-        return createMessage(mailbox, folder, dirName, flags, System.currentTimeMillis());
+        return createMessage(mailbox, folder, dirName, flags, System.currentTimeMillis() - 20000);
     }
 
     public File createMessage(String mailbox, String folder, String dirName, String flags, long time) throws IOException {
@@ -180,6 +191,7 @@ public class MercuryDirSetup {
             }
         }
 
+        messageFile.setLastModified(time);
         return messageFile;
     }
 
@@ -383,6 +395,63 @@ public class MercuryDirSetup {
             }
         }
         return result;
+    }
+
+    public static List<String> testForDeletedAndDuplicates(File from, List<String> result) throws IOException {
+        Map<String, File> files = asList(from.listFiles()).stream().collect(toMap(f -> f.getName(), f -> f));
+
+        files.remove(".");
+        files.remove("..");
+        if (files.containsKey("del") && files.containsKey("new") && files.containsKey("cur")) {
+            Set<String> delNames = asList(files.get("del").listFiles()).stream().map(f -> f.getName()).collect(toSet());
+            Set<String> newNames = collectWithoutDuplicates(files.get("new"), result);
+            Set<String> curNames = collectWithoutDuplicates(files.get("cur"), result);
+
+            Set<String> combinedNew = new HashSet<>(newNames);
+            combinedNew.retainAll(delNames);
+            if (!combinedNew.isEmpty()) {
+                result.add("Errors - not deleted from new @ (" + from.getAbsolutePath() + ") " + String.join(",", combinedNew));
+            }
+
+            Set<String> combinedCur = new HashSet<>(curNames);
+            combinedCur.retainAll(delNames);
+            if (!combinedCur.isEmpty()) {
+                result.add("Errors - not deleted from cur @ (" + from.getAbsolutePath() + ") " + String.join(",", combinedCur));
+            }
+
+            Set<String> inBoth = new HashSet<>(newNames);
+            inBoth.retainAll(curNames);
+            if (!inBoth.isEmpty()) {
+                result.add("Errors - in both new and cur @ (" + from.getAbsolutePath() + ") " + String.join(",", inBoth));
+            }
+
+        } else {
+            for (File f : files.values().stream().filter(File::isDirectory).collect(toList())) {
+                testForDeletedAndDuplicates(f, result);
+            }
+        }
+        return result;
+    }
+
+    private static Set<String> collectWithoutDuplicates(File f, List<String> result) {
+        Map<String, List<File>> files = asList(f.listFiles()).stream().collect(groupingBy(MercuryDirSetup::sanitiseName));
+        List<String> errors = files.values().stream()
+                .filter(l -> l.size() > 1)
+                .map(l -> l.stream().map(File::getAbsolutePath).collect(toList()))
+                .map(l -> "Same files: " + String.join(", ", l))
+                .collect(toList());
+        result.addAll(errors);
+
+        return files.keySet();
+    }
+
+    private static String sanitiseName(File f) {
+        String name = f.getName();
+        int i = name.indexOf(':');
+        if (i >= 0) {
+            return name.substring(0, i);
+        }
+        return name;
     }
 
     private static Set<String> asSet(File[] files) {
