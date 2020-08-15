@@ -502,6 +502,15 @@ public class SyncClient {
         }
     }
 
+    public void touch(String path, String filename, long lastModified) throws IOException {
+        writeLine("TOUCH " + (lastModified / 1000) + " " + path + " " + filename);
+
+        String line = readLine();
+        if (!line.startsWith("READY")) {
+            throw new IOException(line);
+        }
+    }
+
     private String readLine() throws IOException {
         try {
             return readLineImpl();

@@ -362,11 +362,9 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
             RemoteFile remoteFile = entry.getValue();
             File localFile = findMaildirFile(baseFilename, localNew, localCur);
             if (localFile == null || localFile.length() != remoteFile.length()) {
-                if (remoteFile.getPath().endsWith("new")) {
-                    localFile = localNew.getFile(remoteFile.getName());
-                } else {
-                    localFile = localCur.getFile(remoteFile.getName());
-                }
+                CachedDir localDir = remoteFile.getPath().endsWith("new") ? localNew : localCur;
+                localFile = localDir.getFile(remoteFile.getName());
+
                 syncClient.download(remoteFile.getPath() + "/" + remoteFile.getName(), localFile);
                 localFile.setLastModified(remoteFile.lastModified());
             } else if (differentNames(localFile, remoteFile)) {
@@ -394,7 +392,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
             } else if (differentNames(localFile, remoteFile)) {
                 syncClient.move(remoteFile.getPath() + "/" + remoteFile.getName(), localDir.getPath() + "/" + localFile.getName(), localFile.lastModified());
             } else {
-                syncClient.touch(remoteFile.getPath() + "/" + remoteFile.getName(), localFile.lastModified());
+                syncClient.touch(remoteFile.getPath(), remoteFile.getName(), localFile.lastModified());
             }
         }
 
@@ -409,15 +407,13 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                 } else if (differentNames(localFile, remoteFile)) {
                     syncClient.move(remoteFile.getPath() + "/" + remoteFile.getName(), localDir.getPath() + "/" + localFile.getName(), localFile.lastModified());
                 } else {
-                    syncClient.touch(remoteFile.getPath() + "/" + remoteFile.getName(), localFile.lastModified());
+                    syncClient.touch(remoteFile.getPath(), remoteFile.getName(), localFile.lastModified());
                 }
             } else if (remoteFile.lastModified() > localFile.lastModified()) {
                 if (localFile.length() != remoteFile.length()) {
-                    if (remoteFile.getPath().endsWith("new")) {
-                        localFile = localNew.getFile(remoteFile.getName());
-                    } else {
-                        localFile = localCur.getFile(remoteFile.getName());
-                    }
+                    CachedDir localDir = remoteFile.getPath().endsWith("new") ? localNew : localCur;
+                    localFile = localDir.getFile(remoteFile.getName());
+
                     syncClient.download(remoteFile.getPath() + "/" + remoteFile.getName(), localFile);
                     localFile.setLastModified(remoteFile.lastModified());
                 } else if (differentNames(localFile, remoteFile)) {

@@ -12,6 +12,7 @@
  */
 package org.abstracthorizon.mercury.sync.commands;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -62,14 +63,23 @@ public class TouchCommand extends SyncCommand {
                 }
                 long lastModified  = scanner.nextLong();
 
-                String path = scanner.nextLine();
+                String path = scanner.next();
+                String filename = scanner.next();
                 if (path.startsWith(" ")) {
                     path = path.substring(1);
+                }
+                if (filename.startsWith(" ")) {
+                    filename = path.substring(1);
                 }
 
                 CachedDirs cachedDirs = connection.getCachedDirs();
                 CachedDir cachedDir = cachedDirs.forPath(path);
-                cachedDir.setLastModified(lastModified * 1000);
+                if (filename == null) {
+                    cachedDir.setLastModified(lastModified * 1000);
+                } else {
+                    File file = cachedDir.getFile(filename);
+                    file.setLastModified(lastModified * 1000);
+                }
             }
             connection.sendResponse(SyncResponses.getCommandReadyResponse("TOUCH", now));
         } catch (FileNotFoundException notFound) {

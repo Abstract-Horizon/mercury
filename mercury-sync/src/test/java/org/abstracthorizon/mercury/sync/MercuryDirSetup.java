@@ -31,15 +31,12 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
-
 public class MercuryDirSetup {
 
     private static Random random = new Random();
 
     private File tempDir;
     private File mailboxes;
-    private CachedDirs cachedDirs;
 
     private String name;
 
@@ -51,14 +48,6 @@ public class MercuryDirSetup {
         this.name = name;
         this.tempDir = tempDir;
         this.mailboxes = new File(tempDir, "mailboxes");
-    }
-
-    public CachedDirs getCachedDirs() {
-        return cachedDirs;
-    }
-
-    public void setCachedDirs(CachedDirs cachedDirs) {
-        this.cachedDirs = cachedDirs;
     }
 
     public File getMailboxes() {
@@ -84,7 +73,7 @@ public class MercuryDirSetup {
     }
 
     public MercuryDirSetup duplicate(String newName) throws IOException {
-        File duplicateTempDir = File.createTempFile("mercury-sync", ".test-dir");
+        File duplicateTempDir = File.createTempFile("mercury-" + name, ".test-dir");
         if (!duplicateTempDir.delete()) {
             throw new IOException("Cannot delete temp file " + duplicateTempDir.getAbsolutePath());
         }
@@ -192,6 +181,7 @@ public class MercuryDirSetup {
         }
 
         messageFile.setLastModified(time);
+
         return messageFile;
     }
 

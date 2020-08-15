@@ -136,7 +136,7 @@ public class MercuryTestSyncSetup {
             localDirSetup.cleanup();
         }
 
-        localDirSetup = serverDirSetup.duplicate(newName);
+        localDirSetup = getServerDirSetup().duplicate(newName);
     }
 
     public void cleanup() throws IOException {
