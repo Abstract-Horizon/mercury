@@ -35,10 +35,12 @@ public class MercuryDirSetup {
 
     private static Random random = new Random();
 
-    private File tempDir;
+    private File root;
     private File mailboxes;
+    private File config;
 
     private String name;
+
 
     public MercuryDirSetup(String name) {
         this.name = name;
@@ -46,30 +48,44 @@ public class MercuryDirSetup {
 
     private MercuryDirSetup(String name, File tempDir) {
         this.name = name;
-        this.tempDir = tempDir;
+        this.root = tempDir;
         this.mailboxes = new File(tempDir, "mailboxes");
+        this.config = new File(tempDir, "config");
+    }
+
+    public File getRoot() {
+        return root;
     }
 
     public File getMailboxes() {
         return mailboxes;
     }
 
-    public File create() throws IOException {
-        tempDir = File.createTempFile("mercury-" + name, ".test-dir");
-        if (!tempDir.delete()) {
-            throw new IOException("Cannot delete temp file " + tempDir.getAbsolutePath());
-        }
-        if (!tempDir.mkdir()) {
-            throw new IOException("Cannot create " + tempDir.getAbsolutePath());
-        }
-        tempDir.deleteOnExit();
+    public File getConfig() {
+        return config;
+    }
 
-        mailboxes = new File(tempDir, "mailboxes");
+    public File create() throws IOException {
+        root = File.createTempFile("mercury-" + name, ".test-dir");
+        if (!root.delete()) {
+            throw new IOException("Cannot delete temp file " + root.getAbsolutePath());
+        }
+        if (!root.mkdir()) {
+            throw new IOException("Cannot create " + root.getAbsolutePath());
+        }
+        root.deleteOnExit();
+
+        mailboxes = new File(root, "mailboxes");
         if (!mailboxes.mkdir()) {
             throw new IOException("Cannot create " + mailboxes.getAbsolutePath());
         }
 
-        return tempDir;
+        config = new File(root, "config");
+        if (!config.mkdir()) {
+            throw new IOException("Cannot create " + config.getAbsolutePath());
+        }
+
+        return root;
     }
 
     public MercuryDirSetup duplicate(String newName) throws IOException {
@@ -82,7 +98,7 @@ public class MercuryDirSetup {
         }
         duplicateTempDir.deleteOnExit();
 
-        copyRecursively(tempDir, duplicateTempDir);
+        copyRecursively(root, duplicateTempDir);
 
         return new MercuryDirSetup(newName, duplicateTempDir);
     }
@@ -166,23 +182,28 @@ public class MercuryDirSetup {
         }
 
         if (!"del".equals(dirName)) {
-            FileOutputStream fis = new FileOutputStream(messageFile);
-            try {
-                for (int i = 0; i < random.nextInt(4); i++) {
-                    for (int j = 0; j < random.nextInt(3); j++) {
-                        fis.write(Integer.toString(random.nextInt()).getBytes());
-                    }
-                    fis.write(13);
-                    fis.write(10);
-                }
-            } finally {
-                fis.close();
-            }
+            createFile(messageFile);
         }
 
         messageFile.setLastModified(time);
 
         return messageFile;
+    }
+
+    public static File createFile(File file) throws FileNotFoundException, IOException {
+        FileOutputStream fis = new FileOutputStream(file);
+        try {
+            for (int i = 0; i < random.nextInt(4); i++) {
+                for (int j = 0; j < random.nextInt(3); j++) {
+                    fis.write(Integer.toString(random.nextInt()).getBytes());
+                }
+                fis.write(13);
+                fis.write(10);
+            }
+        } finally {
+            fis.close();
+        }
+        return file;
     }
 
     public File deleteMessage(File messageFile) throws IOException {
@@ -206,7 +227,7 @@ public class MercuryDirSetup {
     }
 
     public void cleanup() throws IOException {
-        deleteRecursively(tempDir);
+        deleteRecursively(root);
     }
 
     public static void deleteRecursively(File file) throws IOException {

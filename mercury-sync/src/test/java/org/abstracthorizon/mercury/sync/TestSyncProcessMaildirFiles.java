@@ -13,8 +13,8 @@
 package org.abstracthorizon.mercury.sync;
 
 import static org.abstracthorizon.mercury.sync.MercuryDirSetup.compareRecursively;
+import static org.abstracthorizon.mercury.sync.MercuryDirSetup.createFile;
 import static org.abstracthorizon.mercury.sync.MercuryDirSetup.testForDeletedAndDuplicates;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -29,7 +29,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TestSyncProcess {
+public class TestSyncProcessMaildirFiles {
 
     private MercuryTestSyncSetup setup;
     private long lastSyncedTime;
@@ -45,7 +45,7 @@ public class TestSyncProcess {
         setup.duplicateServerSetup("local");
 
         localCachedDirs = new CachedDirs();
-        localCachedDirs.setRootFile(setup.getLocalMailboxes());
+        localCachedDirs.setRootFile(setup.getLocalDeploy());
 
         createTypical(setup);
 
@@ -100,20 +100,6 @@ public class TestSyncProcess {
     }
 
     @Test
-    public void testDeletedNewFromLocal() throws IOException, InterruptedException {
-        File localMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".testfolder1", "new", "2,S", lastSyncedTime - 10000);
-        File remoteMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".testfolder1", "new", "2,S", lastSyncedTime - 10000);
-
-        setup.getLocalDirSetup().deleteMessage(localMessage).setLastModified(lastSyncedTime + 8000);
-        assertTrue("Local message still exists", !localMessage.exists());
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        testForErrors(setup);
-        assertTrue("Remote message still exists", !remoteMessage.exists());
-    }
-
-    @Test
     public void testDeletedCurFromRemote() throws IOException, InterruptedException {
         File localMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", lastSyncedTime - 10000);
         File remoteMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", lastSyncedTime - 10000);
@@ -129,20 +115,6 @@ public class TestSyncProcess {
     }
 
     @Test
-    public void testDeletedCurFromLocal() throws IOException, InterruptedException {
-        File localMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", lastSyncedTime - 10000);
-        File remoteMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", lastSyncedTime - 10000);
-
-        setup.getLocalDirSetup().deleteMessage(localMessage).setLastModified(lastSyncedTime + 8000);
-        assertTrue("Local message still exists", !localMessage.exists());
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        testForErrors(setup);
-        assertTrue("Remote message still exists", !remoteMessage.exists());
-    }
-
-    @Test
     public void testNewFolderInRemoteToLocal() throws IOException, InterruptedException {
         setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
 
@@ -150,6 +122,8 @@ public class TestSyncProcess {
 
         testForErrors(setup);
     }
+
+    // Remote
 
     @Test
     public void testNewFolderInLocalToRemote() throws IOException, InterruptedException {
@@ -166,16 +140,6 @@ public class TestSyncProcess {
         setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 10000);
         setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 9000);
 
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        testForErrors(setup);
-    }
-
-    @Test
-    public void testNewFolderPopulationInLocal() throws IOException, InterruptedException {
-        setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 10000);
-        setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 9000);
         syncConnectionHandler.syncWith("localhost", setup.getPort());
 
         testForErrors(setup);
@@ -237,6 +201,57 @@ public class TestSyncProcess {
         testForErrors(setup);
     }
 
+    // Remote both changed
+
+    @Test
+    public void testNewFolderBothRemoteFirst() throws IOException, InterruptedException {
+        setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 4000);
+        File serverMsg = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 4000);
+
+        serverMsg.setLastModified(lastSyncedTime + 5000);
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
+    @Test
+    public void testNewToCurBothFolderRemoteLast() throws IOException, InterruptedException {
+        setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        File newMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 1000);
+        File tempCurMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "cur", null, lastSyncedTime + 1000);
+        File curMessage = new File(tempCurMessage.getParent(), newMessage.getName() + ":2,S");
+
+        tempCurMessage.delete();
+        copyFile(newMessage, curMessage);
+
+        curMessage.setLastModified(lastSyncedTime + 10000);
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
+    @Test
+    public void testCurToNewBothFolderRemoteLast() throws IOException, InterruptedException {
+        setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        File curMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "cur", ":2,S", lastSyncedTime + 1000);
+        File tempNewMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 1000);
+        File newMessage = new File(tempNewMessage.getParent(), baseFilename(curMessage.getName()));
+
+        tempNewMessage.delete();
+        copyFile(curMessage, newMessage);
+
+        newMessage.setLastModified(lastSyncedTime + 10000);
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
     @Test
     public void testNewToNewAndCurToCurBothFolderRemoteLast() throws IOException, InterruptedException {
         setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
@@ -260,6 +275,46 @@ public class TestSyncProcess {
         testForErrors(setup);
     }
 
+    // Local
+
+    @Test
+    public void testDeletedNewFromLocal() throws IOException, InterruptedException {
+        File localMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".testfolder1", "new", "2,S", lastSyncedTime - 10000);
+        File remoteMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".testfolder1", "new", "2,S", lastSyncedTime - 10000);
+
+        setup.getLocalDirSetup().deleteMessage(localMessage).setLastModified(lastSyncedTime + 8000);
+        assertTrue("Local message still exists", !localMessage.exists());
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+        assertTrue("Remote message still exists", !remoteMessage.exists());
+    }
+
+    @Test
+    public void testDeletedCurFromLocal() throws IOException, InterruptedException {
+        File localMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", lastSyncedTime - 10000);
+        File remoteMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".testfolder1", "cur", "2,S", lastSyncedTime - 10000);
+
+        setup.getLocalDirSetup().deleteMessage(localMessage).setLastModified(lastSyncedTime + 8000);
+        assertTrue("Local message still exists", !localMessage.exists());
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+        assertTrue("Remote message still exists", !remoteMessage.exists());
+    }
+
+    @Test
+    public void testNewFolderPopulationInLocal() throws IOException, InterruptedException {
+        setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 10000);
+        setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 9000);
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
     @Test
     public void testNewToCurFolderLocal() throws IOException, InterruptedException {
         setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
@@ -272,9 +327,6 @@ public class TestSyncProcess {
         copyFile(newMessage, curMessage);
 
         curMessage.setLastModified(lastSyncedTime + 100000);
-
-        CachedDirs localCachedDirs = new CachedDirs();
-        localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
         syncConnectionHandler.syncWith("localhost", setup.getPort());
 
@@ -293,9 +345,6 @@ public class TestSyncProcess {
         copyFile(curMessage, newMessage);
 
         newMessage.setLastModified(lastSyncedTime + 100000);
-
-        CachedDirs localCachedDirs = new CachedDirs();
-        localCachedDirs.setRootFile(setup.getLocalMailboxes());
 
         syncConnectionHandler.syncWith("localhost", setup.getPort());
 
@@ -317,8 +366,56 @@ public class TestSyncProcess {
         serverNewMessage.setLastModified(lastSyncedTime + 100000);
         serverCurMessage.setLastModified(lastSyncedTime + 90000);
 
-        CachedDirs localCachedDirs = new CachedDirs();
-        localCachedDirs.setRootFile(setup.getLocalMailboxes());
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
+    // Local both changed
+
+    @Test
+    public void testNewFolderBothLocalLast() throws IOException, InterruptedException {
+        setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        File localMsg = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 4000);
+        setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 4000);
+
+        localMsg.setLastModified(lastSyncedTime + 5000);
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
+    @Test
+    public void testNewToCurFolderBothLocalLast() throws IOException, InterruptedException {
+        setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        File newMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 4000);
+        File tempCurMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "cur", null, lastSyncedTime + 40000);
+        File curMessage = new File(tempCurMessage.getParent(), newMessage.getName() + ":2,S");
+
+        tempCurMessage.delete();
+        copyFile(newMessage, curMessage);
+
+        curMessage.setLastModified(lastSyncedTime + 100000);
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
+    @Test
+    public void testCurToNewFolderBothLocalLast() throws IOException, InterruptedException {
+        setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        File curMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "cur", ":2,S", lastSyncedTime + 40000);
+        File tempNewMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 40000);
+        File newMessage = new File(tempNewMessage.getParent(), baseFilename(curMessage.getName()));
+
+        tempNewMessage.delete();
+        copyFile(curMessage, newMessage);
+
+        newMessage.setLastModified(lastSyncedTime + 100000);
 
         syncConnectionHandler.syncWith("localhost", setup.getPort());
 
@@ -343,8 +440,25 @@ public class TestSyncProcess {
         localNewMessage.setLastModified(lastSyncedTime + 100000);
         localCurMessage.setLastModified(lastSyncedTime + 90000);
 
-        CachedDirs localCachedDirs = new CachedDirs();
-        localCachedDirs.setRootFile(setup.getLocalMailboxes());
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
+    // Both changes at the same time!
+
+    @Test
+    public void testNewToCurFolderBothLocalAtSameTime() throws IOException, InterruptedException {
+        setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        File newMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 3000);
+        File tempCurMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "cur", null, lastSyncedTime + 30000);
+        File curMessage = new File(tempCurMessage.getParent(), newMessage.getName() + ":2,S");
+
+        tempCurMessage.delete();
+        copyFile(newMessage, curMessage);
+
+        curMessage.setLastModified(lastSyncedTime + 3000);
 
         syncConnectionHandler.syncWith("localhost", setup.getPort());
 
@@ -352,228 +466,90 @@ public class TestSyncProcess {
     }
 
     @Test
-    public void testDeletedDirRemote() throws IOException, InterruptedException {
-        File localFolder = setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        // Set the local folder to be older than when the remote one is deleted
-        localFolder.setLastModified(1);
-
-        @SuppressWarnings("unused")
-        File remoteMailbox = setup.getServerDirSetup().createMailbox("testmailbox1");
-
-        File deletedFiles = new File(setup.getServerCachedDirs().getRootFile(), ".deleted_dirs");
-        TestUtils.writeFile(deletedFiles, "100 testmailbox1/.newtestfolder\n");
-
-        setup.getServerCachedDirs().refresh();
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
-
-        assertTrue("Got errors\n" + join(result), result.isEmpty());
-        assertTrue("Local folder still exists", !localFolder.exists());
-    }
-
-    @Test
-    public void testDeletedDirLocal() throws IOException, InterruptedException {
-        File remoteFolder = setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        // Set the remote folder to be older than when the local one is deleted
-        remoteFolder.setLastModified(1);
-
-        @SuppressWarnings("unused")
-        File localMailbox = setup.getLocalDirSetup().createMailbox("testmailbox1");
-
-        // simulate deleting folder
-        File deletedFiles = new File(setup.getLocalDirSetup().getMailboxes(), ".deleted_dirs");
-        String string = "testmailbox1/.newtestfolder";
-        TestUtils.writeFile(deletedFiles, "1000 " + string + "\n");
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
-
-        assertTrue("Got errors\n" + join(result), result.isEmpty());
-        assertTrue("Remote folder still exists", !remoteFolder.exists());
-    }
-
-    @Test
-    public void testRecreatingDeletedDirInRemote() throws IOException, InterruptedException {
-        File remoteFolder = setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        remoteFolder.setLastModified(remoteFolder.lastModified() - 1000);
-        assertTrue("Remote Folder was not created", remoteFolder.exists());
-
-        File localMailbox = setup.getLocalDirSetup().createMailbox("testmailbox1");
-        File localFolder = new File(localMailbox, ".newtestfolder");
-
-        // simulate deleting folder
-        File deletedFiles = new File(setup.getLocalDirSetup().getMailboxes(), ".deleted_dirs");
-        String string = "testmailbox1/.newtestfolder";
-        TestUtils.writeFile(deletedFiles, (System.currentTimeMillis() / 1000) + " " + string + "\n");
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        assertTrue("Remote Folder was not deleted", !remoteFolder.exists());
-        List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
-        assertTrue("There were differences after first sync (delete) \n" + join(result), result.isEmpty());
-
-        File newRemoteFolder = setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        newRemoteFolder.setLastModified(newRemoteFolder.lastModified() + 1000);
-
-        setup.getServerCachedDirs().forceRefresh();
-
-        assertTrue("Remote Folder was not created", newRemoteFolder.exists());
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        List<String> result2 = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
-
-        assertTrue("Remote Folder was re-deleted", newRemoteFolder.exists());
-        assertTrue("New folder was not synced back to local", localFolder.exists());
-
-        assertTrue("There were differences after second sync (recreate) \n" + join(result2), result2.isEmpty());
-    }
-
-    @Test
-    public void testRecreatingDeletedDirInLocal() throws IOException, InterruptedException {
-        File localFolder = setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        localFolder.setLastModified(localFolder.lastModified() - 1000);
-        assertTrue("Local Folder was not created", localFolder.exists());
-
-        @SuppressWarnings("unused")
-        File remoteMailbox = setup.getServerDirSetup().createMailbox("testmailbox1");
-
-        // simulate deleting folder
-        File deletedFiles = new File(setup.getServerDirSetup().getMailboxes(), ".deleted_dirs");
-        String string = "testmailbox1/.newtestfolder";
-        TestUtils.writeFile(deletedFiles, (System.currentTimeMillis() / 1000) + " " + string + "\n");
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        assertTrue("Local Folder was not deleted", !localFolder.exists());
-        List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
-        assertTrue("There were differences after first sync (delete) \n" + join(result), result.isEmpty());
-
-        File newLocalFolder = setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        newLocalFolder.setLastModified(newLocalFolder.lastModified() + 1000);
-
-        localCachedDirs.forceRefresh();
-
-        assertTrue("Local Folder was not created", newLocalFolder.exists());
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        List<String> result2 = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
-
-        assertTrue("Local Folder was re-deleted", newLocalFolder.exists());
-        assertTrue("New folder was not synced back to remote", localFolder.exists());
-
-        assertTrue("There were differences after second sync (recreate) \n" + join(result2), result2.isEmpty());
-    }
-
-    @Test
-    public void testSyncingDeletedDirsFileToRemote() throws IOException, InterruptedException {
-        File remoteFolder = setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        // Set the remote folder to be older than when the local one is deleted
-        remoteFolder.setLastModified(1);
-
-        @SuppressWarnings("unused")
-        File localMailbox = setup.getLocalDirSetup().createMailbox("testmailbox1");
-
-        // simulate deleting folder
-        File deletedDirsLocal = new File(setup.getLocalDirSetup().getMailboxes(), ".deleted_dirs");
-        File deletedDirsRemote = new File(setup.getServerCachedDirs().getRootFile(), ".deleted_dirs");
-
-        String string = "testmailbox1/.newtestfolder";
-        TestUtils.writeFile(deletedDirsLocal, (System.currentTimeMillis() / 1000) + " " + string + "\n");
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
-
-        assertTrue("Got errors\n" + join(result), result.isEmpty());
-        assertTrue("Remote folder still exists", !remoteFolder.exists());
-
-        assertTrue("Deleted Dirs local doesnt exist", deletedDirsLocal.exists());
-        assertTrue("Deleted dirs was not copied", deletedDirsRemote.exists());
-    }
-
-    @Test
-    public void testSyncingDeletedDirsFileToLocal() throws IOException, InterruptedException {
-        File localFolder = setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
-        // Set the local folder to be older than when the remote one is deleted
-        localFolder.setLastModified(1);
-
-        @SuppressWarnings("unused")
-        File remoteMailbox = setup.getServerDirSetup().createMailbox("testmailbox1");
-
-        File deletedDirsRemote = new File(setup.getServerCachedDirs().getRootFile(), ".deleted_dirs");
-        File deletedDirsLocal = new File(setup.getLocalDirSetup().getMailboxes(), ".deleted_dirs");
-
-        TestUtils.writeFile(deletedDirsRemote, (System.currentTimeMillis() / 1000) + " testmailbox1/.newtestfolder\n");
-
-        setup.getServerCachedDirs().refresh();
-
-        syncConnectionHandler.syncWith("localhost", setup.getPort());
-
-        List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
-
-        assertTrue("Got errors\n" + join(result), result.isEmpty());
-        assertTrue("Local folder still exists", !localFolder.exists());
-
-        assertTrue("Deleted Dirs remote doesnt exist", deletedDirsRemote.exists());
-        assertTrue("Deleted dirs was not copied", deletedDirsLocal.exists());
-    }
-
-    @Test
-    public void testRemovingExpiredDeletedDirs() throws IOException {
-        File deletedFiles = new File(setup.getLocalMailboxes(), ".deleted_dirs");
-
-        String keep = System.currentTimeMillis() + " .newtestfolder2\n" + System.currentTimeMillis() + " .newtestfolder3\n";
-
-        String data = "1 .newtestfolder\n" + keep;
-        TestUtils.writeFile(deletedFiles, data);
-
-        localCachedDirs.refresh();
-
-        assertTrue("Deleted dirs file was deleted", deletedFiles.exists());
-
-        String loadFile = TestUtils.loadFile(deletedFiles);
-        assertEquals("Line wasnt deleted from deleted dirs", keep, loadFile);
-    }
-
-    @Test
-    public void testDeletingEmptyDeletedDirs() throws IOException {
-        File deletedFiles = new File(setup.getLocalMailboxes(), ".deleted_dirs");
-
-        String data = "1 .newtestfolder\n" + "2 .newtestfolder\n";
-
-        TestUtils.writeFile(deletedFiles, data);
-
-        localCachedDirs.refresh();
-
-        assertTrue("Deleted dirs file was not deleted", !deletedFiles.exists());
-    }
-
-    @Test
-    public void testRemoveExistingDirectoryEntries() throws IOException {
-        File deletedFiles = new File(setup.getLocalMailboxes(), ".deleted_dirs");
+    public void testCurToNewFolderBothLocalAtSameTime() throws IOException, InterruptedException {
+        setup.getServerDirSetup().createFolder("testmailbox1", ".newtestfolder");
         setup.getLocalDirSetup().createFolder("testmailbox1", ".newtestfolder");
+        File curMessage = setup.getServerDirSetup().createMessage("testmailbox1", ".newtestfolder", "cur", ":2,S", lastSyncedTime + 4000);
+        File tempNewMessage = setup.getLocalDirSetup().createMessage("testmailbox1", ".newtestfolder", "new", null, lastSyncedTime + 40000);
+        File newMessage = new File(tempNewMessage.getParent(), baseFilename(curMessage.getName()));
 
-        // a directory that was deleted and it stays that way
-        String keep = System.currentTimeMillis() + " testmailbox1/.newtestfolder2\n";
+        tempNewMessage.delete();
+        copyFile(curMessage, newMessage);
 
-        String data = System.currentTimeMillis() + " testmailbox1/.newtestfolder\n" + keep;
+        newMessage.setLastModified(lastSyncedTime + 4000);
 
-        TestUtils.writeFile(deletedFiles, data);
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
 
-        localCachedDirs.refresh();
+        testForErrors(setup);
+    }
 
-        String loadFile = TestUtils.loadFile(deletedFiles);
+    // Config files
 
-        assertEquals("Line wasnt deleted from deleted dirs", keep, loadFile);
+    @Test
+    public void testConfigFromRemoteChangesToLocal() throws IOException, InterruptedException {
+        File serverConfig = setup.getServerDirSetup().getConfig();
+        File serverAccountProperties = createFile(new File(serverConfig, "account.properties"));
+        File serverAccountKeystore = createFile(new File(serverConfig, "account.keystore"));
+
+        File localConfig = setup.getLocalDirSetup().getConfig();
+        File localAccountProperties = createFile(new File(localConfig, "account.properties"));
+        File lcoalAccountKeystore = createFile(new File(localConfig, "account.keystore"));
+
+        serverAccountProperties.setLastModified(lastSyncedTime + 10000);
+        serverAccountKeystore.setLastModified(lastSyncedTime + 10000);
+
+        localAccountProperties.setLastModified(lastSyncedTime - 10000);
+        lcoalAccountKeystore.setLastModified(lastSyncedTime - 10000);
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
+    @Test
+    public void testConfigFromLocalChangesToRemote() throws IOException, InterruptedException {
+        File serverConfig = setup.getServerDirSetup().getConfig();
+        File serverAccountProperties = createFile(new File(serverConfig, "account.properties"));
+        File serverAccountKeystore = createFile(new File(serverConfig, "account.keystore"));
+
+        File localConfig = setup.getLocalDirSetup().getConfig();
+        File localAccountProperties = createFile(new File(localConfig, "account.properties"));
+        File lcoalAccountKeystore = createFile(new File(localConfig, "account.keystore"));
+
+        serverAccountProperties.setLastModified(lastSyncedTime - 100000);
+        serverAccountKeystore.setLastModified(lastSyncedTime - 100000);
+
+        localAccountProperties.setLastModified(lastSyncedTime + 100000);
+        lcoalAccountKeystore.setLastModified(lastSyncedTime + 100000);
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
+    }
+
+    @Test
+    public void testConfigChangedAtTheSameTime() throws IOException, InterruptedException {
+        File serverConfig = setup.getServerDirSetup().getConfig();
+        File serverAccountProperties = createFile(new File(serverConfig, "account.properties"));
+        File serverAccountKeystore = createFile(new File(serverConfig, "account.keystore"));
+
+        File localConfig = setup.getLocalDirSetup().getConfig();
+        File localAccountProperties = createFile(new File(localConfig, "account.properties"));
+        File lcoalAccountKeystore = createFile(new File(localConfig, "account.keystore"));
+
+        serverAccountProperties.setLastModified(lastSyncedTime + 10000);
+        serverAccountKeystore.setLastModified(lastSyncedTime + 10000);
+
+        localAccountProperties.setLastModified(lastSyncedTime + 10000);
+        lcoalAccountKeystore.setLastModified(lastSyncedTime + 10000);
+
+        syncConnectionHandler.syncWith("localhost", setup.getPort());
+
+        testForErrors(setup);
     }
 
     private void testForErrors(MercuryTestSyncSetup setup) throws IOException {
-        List<String> result = compareRecursively(setup.getServerMailboxes(), setup.getLocalMailboxes(), new ArrayList<String>());
+        List<String> result = compareRecursively(setup.getServerDeploy(), setup.getLocalDeploy(), new ArrayList<String>());
         testForDeletedAndDuplicates(setup.getServerDirSetup().getMailboxes(), result);
         testForDeletedAndDuplicates(setup.getLocalDirSetup().getMailboxes(), result);
         assertTrue("Got errors\n" + join(result), result.isEmpty());
@@ -616,8 +592,6 @@ public class TestSyncProcess {
                 r = fis.read(buf);
             }
         }
-        // TODO Auto-generated method stub
-
     }
 
     private static String baseFilename(String filename) {

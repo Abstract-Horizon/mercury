@@ -37,9 +37,11 @@ public class SyncResponses {
 
     public static final SyncResponse FILE_ALREADY_EXISTS = new SyncResponse("ERROR", "File already exists");
 
+    public static final SyncResponse CANNOT_RENAME = new SyncResponse("ERROR", "File cannot be renamed");
+
     public static final SyncResponse CANNOT_DELETE = new SyncResponse("ERROR", "File cannot be deleted");
 
-    public static final SyncResponse CANNOT_RENAME = new SyncResponse("ERROR", "File cannot be renamed");
+    public static final SyncResponse CANNOT_DELETE_EXISTING_FILE = new SyncResponse("ERROR", "Cannot delete existing file");
 
     public static final SyncResponse ONLY_LAST_PATH_ELEMENT_CAN_BE_CREATED = new SyncResponse("ERROR", "Only last path element can be created");
 

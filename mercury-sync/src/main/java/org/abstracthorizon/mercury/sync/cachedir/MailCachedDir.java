@@ -16,7 +16,6 @@ import static java.util.Collections.sort;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -119,7 +118,8 @@ public class MailCachedDir extends AbstractSubdirCachedDir {
                 // Add to deleted dirs
                 File deletedDirs = new File(getParent().getRootFile(), ".deleted_dirs");
                 if (!deletedDirs.exists()) {
-                    try (FileOutputStream out = new FileOutputStream(deletedDirs)) {
+                    if (!deletedDirs.createNewFile()) {
+                        throw new IOException("Cannot create file " + deletedDirs);
                     }
                 }
 
@@ -186,7 +186,7 @@ public class MailCachedDir extends AbstractSubdirCachedDir {
     @Override
     public File getFile(String filename) {
         String name = getName();
-        if ("cur".equals(name) || "new".equals(name) || "del".equals(name)) {
+        if ("cur".equals(name) || "new".equals(name) || "del".equals(name) || "config".equals(name)) {
             return new File(file, filename);
         }
 

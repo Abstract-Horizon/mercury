@@ -203,12 +203,12 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
             syncNewAndCurFiles(syncClient, local, remote);
         }
-//        if (commonLocalSubdirs.containsKey("config")) {
-//            CachedDir localCachedDir = localSubdirs.get("config");
-//            CachedDir remoteCachedDir = remoteSubdirs.get("config");
-//            downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
-//            uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
-//        }
+        if (commonLocalSubdirs.containsKey("config")) {
+            CachedDir localCachedDir = localSubdirs.get("config");
+            CachedDir remoteCachedDir = remoteSubdirs.get("config");
+            downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+            uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+        }
 
         commonLocalSubdirs.remove("del");
         commonRemoteSubdirs.remove("del");
@@ -216,8 +216,8 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         commonRemoteSubdirs.remove("new");
         commonLocalSubdirs.remove("cur");
         commonRemoteSubdirs.remove("cur");
-//        commonLocalSubdirs.remove("config");
-//        commonRemoteSubdirs.remove("config");
+        commonLocalSubdirs.remove("config");
+        commonRemoteSubdirs.remove("config");
 
         for (CachedDir subLocalCachedDir : commonLocalSubdirs.values()) {
             CachedDir subRemoteCachedDir = commonRemoteSubdirs.get(subLocalCachedDir.getName());
@@ -239,7 +239,6 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                     if (deletedTime >= remoteLastModified) {
                         syncClient.rmdir(localDir.getPath());
                         deletedInLocal.add(name);
-                    } else {
                     }
                 }
 
@@ -260,7 +259,6 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                     if (deletedTime >= localLastModified) {
                         local.removeSubdir(name);
                         deletedInRemote.add(name);
-                    } else {
                     }
                 }
 
@@ -316,9 +314,9 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
             String filename = file.getName();
 
             String fullPath = remote.getPath() + "/" + filename;
-
             // TODO what about checking peer file's timestamp!!!
-            if (syncClient.exists(fullPath) != null) {
+            RemoteFile remoteFile = syncClient.exists(fullPath);
+            if (remoteFile != null && remoteFile.lastModified() < file.lastModified()) {
                 syncClient.upload(fullPath, file);
             }
         }
@@ -436,7 +434,6 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                     syncClient.upload(localDir.getPath() + "/" + localFile.getName(), localFile);
                 }
             }
-            // TODO
         }
     }
 

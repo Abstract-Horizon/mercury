@@ -12,6 +12,7 @@
  */
 package org.abstracthorizon.mercury.sync.commands;
 
+import static java.util.Arrays.asList;
 import static org.abstracthorizon.mercury.sync.commands.GetCommand.checkIfMaildirPath;
 
 import java.io.File;
@@ -20,10 +21,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.SocketTimeoutException;
+import java.util.Optional;
 import java.util.Scanner;
+import java.util.stream.Stream;
 
 import org.abstracthorizon.mercury.common.command.CommandException;
-import org.abstracthorizon.mercury.sync.SyncResponse;
 import org.abstracthorizon.mercury.sync.SyncResponses;
 import org.abstracthorizon.mercury.sync.SyncSession;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDir;
@@ -101,10 +103,40 @@ public class PutCommand extends SyncCommand {
                 CachedDir selectedDirectory = cachedDirs.forPath(path);
                 File file = selectedDirectory.getFile(filename);
 
-                if (file != null && file.exists()) {
-                    connection.sendResponse(new SyncResponse("EXISTS", file.lastModified() + " " + file.length() + " " + file.getName()));
-                    return;
+                if (file == null || !file.exists()) {
+                    if (path.endsWith("/new") || path.endsWith("/cur")) {
+                        String baseFilename = filename.split(":")[0];
+
+                        if (path.endsWith("/new")) {
+                            path = path.substring(0, path.length() - 3) + "cur";
+                        } else { // if (path.endsWith("/cur")) {
+                            path = path.substring(0, path.length() - 3) + "new";
+                        }
+
+                        File[] otherFiles = cachedDirs.forPath(path).listFilesAfter(0);
+
+                        Optional<File> maybeFile = Stream.concat(
+                                asList(selectedDirectory.listFilesAfter(0)).stream(),
+                                asList(otherFiles).stream())
+                            .filter(f -> f.getName().startsWith(baseFilename))
+                            .findFirst();
+
+                        if (maybeFile.isPresent()) {
+                            File otherFile = maybeFile.get();
+                            if (!otherFile.delete()) {
+                                connection.sendResponse(SyncResponses.CANNOT_DELETE_EXISTING_FILE);
+                                return;
+                            }
+                        }
+
+
+                    }
                 }
+
+//                if (file != null && file.exists()) {
+//                    connection.sendResponse(new SyncResponse("EXISTS", file.lastModified() + " " + file.length() + " " + file.getName()));
+//                    return;
+//                }
 
                 connection.sendResponse(SyncResponses.READY_TO_RECEIVE_RESPONSE);
                 InputStream in = connection.getInputStream();

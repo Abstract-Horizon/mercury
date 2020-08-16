@@ -52,7 +52,7 @@ public class SetupSyncForTesting {
             syncConnectionHandler.setConnectionHandler(syncCommandFactory);
 
             CachedDirs cachedDirs = new CachedDirs();
-            cachedDirs.setRootFile(new File(new File(System.getProperty("user.home")), "temp/mercury/deploy/mercury-data/mailboxes"));
+            cachedDirs.setRootFile(new File(new File(System.getProperty("user.home")), "temp/mercury/deploy/mercury-data"));
             cachedDirs.setSpecialFiles("deploy/mercury-data/config/accounts.properties, deploy/mercury-data/config/accounts.keystore");
 
             syncCommandFactory.setInactivityTimeout(60000);

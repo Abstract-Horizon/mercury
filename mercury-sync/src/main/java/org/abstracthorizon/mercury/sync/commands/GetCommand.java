@@ -111,7 +111,7 @@ public class GetCommand extends SyncCommand {
     }
 
     public static boolean checkIfMaildirPath(String path) {
-        return "new".equals(path) || "cur".equals(path) || "tmp".equals(path) || "del".equals(path);
+        return "new".equals(path) || "cur".equals(path) || "tmp".equals(path) || "del".equals(path) || "config".equals(path);
     }
 
     private static class FileModifiedAndSizeResponse extends SyncResponse {

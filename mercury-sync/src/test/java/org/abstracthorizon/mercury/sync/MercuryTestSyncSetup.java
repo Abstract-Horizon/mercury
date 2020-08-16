@@ -85,6 +85,14 @@ public class MercuryTestSyncSetup {
         return getLocalDirSetup().getMailboxes();
     }
 
+    public File getServerDeploy() throws IOException {
+        return getServerDirSetup().getRoot();
+    }
+
+    public File getLocalDeploy() throws IOException {
+        return getLocalDirSetup().getRoot();
+    }
+
     public void create() throws IOException {
         ServerSocket socket = new ServerSocket(0);
         port = socket.getLocalPort();
@@ -102,7 +110,7 @@ public class MercuryTestSyncSetup {
         service.setTrustStorePassword("password1234");
 
         serverCachedDirs = new CachedDirs();
-        serverCachedDirs.setRootFile(getServerMailboxes());
+        serverCachedDirs.setRootFile(getServerDeploy());
         // cachedDirs.setSpecialFiles("deploy/mercury-data/config/accounts.properties, deploy/mercury-data/config/accounts.keystore");
 
         syncConnectionHandler = new SyncConnectionHandler();
