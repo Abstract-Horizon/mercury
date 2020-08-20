@@ -128,8 +128,6 @@ public class PutCommand extends SyncCommand {
                                 return;
                             }
                         }
-
-
                     }
                 }
 
@@ -142,7 +140,10 @@ public class PutCommand extends SyncCommand {
                 InputStream in = connection.getInputStream();
 
                 byte[] buf = new byte[10240];
-                FileOutputStream out = new FileOutputStream(file);
+
+                File tempFile = new File(file.getParent(), ".temp-" + file.getName());
+
+                FileOutputStream out = new FileOutputStream(tempFile);
                 try {
                     int l = Math.min(buf.length, size);
                     int r = in.read(buf, 0, l);
@@ -154,6 +155,15 @@ public class PutCommand extends SyncCommand {
                     }
                 } finally {
                     out.close();
+                }
+                tempFile.setLastModified(lastModified * 1000);
+                if (file.exists()) {
+                    if (!file.delete()) {
+                        // TODO
+                    }
+                }
+                if (!tempFile.renameTo(file)) {
+                    // TODO
                 }
 
                 file.setLastModified(lastModified * 1000);

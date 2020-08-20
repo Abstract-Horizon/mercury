@@ -75,7 +75,13 @@ public class SimpleStorageManager implements StorageManager {
     protected boolean caseSensitive = false;
 
     /** Properties to keep all elements in */
-    protected Properties props = new Properties();
+    protected Properties properties = new Properties();
+
+    protected long propertiesFileTimestamp = 0;
+
+    protected long lastChecked = 0;
+
+    protected long checkTimeout = 5000;
 
     /** Maildir session to work  in */
     protected Session session;
@@ -93,6 +99,14 @@ public class SimpleStorageManager implements StorageManager {
      * Constructor
      */
     public SimpleStorageManager() {
+    }
+
+    public long getCheckTimeout() {
+        return checkTimeout;
+    }
+
+    public void setCheckTimeout(long checkTimeout) {
+        this.checkTimeout = checkTimeout;
     }
 
     /**
@@ -137,7 +151,7 @@ public class SimpleStorageManager implements StorageManager {
     public void setCaseSensitive(boolean caseSensitive) {
         this.caseSensitive = caseSensitive;
         if (!caseSensitive) {
-            toLowerCase();
+            toLowerCase(properties);
         }
     }
 
@@ -178,20 +192,36 @@ public class SimpleStorageManager implements StorageManager {
         }
     }
 
+    protected Properties getProperties() {
+        if (propertiesFile.exists()) {
+            long now = System.currentTimeMillis();
+            if (lastChecked + checkTimeout > now) {
+                return properties;
+            }
+            long propertiesFileTimestamp = propertiesFile.lastModified();
+            if (this.propertiesFileTimestamp != propertiesFileTimestamp) {
+                try {
+                    load();
+                } catch (Exception ignore) {}
+            }
+            this.propertiesFileTimestamp = propertiesFileTimestamp;
+        }
+        return properties;
+    }
+
     /**
      * This method loads the properties
      * @throws IOException
      */
     public void load() throws IOException {
-        InputStream fis = getPropertiesInputStream();
-        try {
-            props.load(fis);
-        } finally {
-            fis.close();
+        Properties newProperties = new Properties();
+        try (InputStream fis = getPropertiesInputStream()) {
+            newProperties.load(fis);
         }
         if (!caseSensitive) {
-                toLowerCase();
+            toLowerCase(newProperties);
         }
+        properties = newProperties;
     }
 
     /**
@@ -203,7 +233,7 @@ public class SimpleStorageManager implements StorageManager {
             OutputStream fos = getPropertiesOutputStream();
             if (fos != null) {
                 try {
-                    props.store(fos, "# SMTP Manager data");
+                    properties.store(fos, "# SMTP Manager data");
                 } finally {
                     fos.close();
                 }
@@ -236,7 +266,7 @@ public class SimpleStorageManager implements StorageManager {
      * @return main domain
      */
     public String getMainDomain() {
-        return props.getProperty("server.domain");
+        return getProperties().getProperty("server.domain");
     }
 
     /**
@@ -244,7 +274,7 @@ public class SimpleStorageManager implements StorageManager {
      * @param domain main domain name
      */
     public void setMainDomain(String domain) {
-        props.setProperty("server.domain", domain);
+        getProperties().setProperty("server.domain", domain);
     }
 
     /**
@@ -258,7 +288,7 @@ public class SimpleStorageManager implements StorageManager {
         if (domain.equals(getMainDomain())) {
             return true;
         }
-        return props.getProperty("-@" + domain) != null;
+        return getProperties().getProperty("-@" + domain) != null;
     }
 
 
@@ -317,7 +347,7 @@ public class SimpleStorageManager implements StorageManager {
             } catch (NoSuchProviderException e) {
                 // try for catch all, but only in case that mail wasn't directed or redirected to postmaster and
                 // that postmaster exists on final domain after resolving aliases
-                if (!mailbox.equals("postmaster") && (props.getProperty("-" + makeEntry("postmaster", domain)) != null)) {
+                if (!mailbox.equals("postmaster") && (getProperties().getProperty("-" + makeEntry("postmaster", domain)) != null)) {
                     return findInbox("postmaster", domain, null);
                 } else {
                     throw new UnknownUserException("User: " + makeEntry(mailbox, domain) + " now known", e);
@@ -340,6 +370,7 @@ public class SimpleStorageManager implements StorageManager {
         if (dn == null) {
             dn = "";
         }
+        Properties props = getProperties();
 
         String map = props.getProperty("-" + makeEntry(mb, dn));
         if (map == null) {
@@ -403,7 +434,7 @@ public class SimpleStorageManager implements StorageManager {
         if (!caseSensitive) {
             mailbox = mailbox.toLowerCase();
         }
-        props.setProperty("-" + mailbox, "S=" + store);
+        getProperties().setProperty("-" + mailbox, "S=" + store);
         if (autosave) { save(); }
     }
 
@@ -417,7 +448,7 @@ public class SimpleStorageManager implements StorageManager {
         if (!caseSensitive) {
             mailbox = mailbox.toLowerCase();
         }
-        props.setProperty("-"+mailbox, "A="+destMailbox);
+        getProperties().setProperty("-"+mailbox, "A="+destMailbox);
         if (autosave) { save(); }
     }
 
@@ -429,9 +460,9 @@ public class SimpleStorageManager implements StorageManager {
         if (!caseSensitive) {
             mailbox = mailbox.toLowerCase();
         }
-        String property = props.getProperty("-" + mailbox);
+        String property = getProperties().getProperty("-" + mailbox);
         if ((property != null) && property.startsWith("A=")) {
-            props.remove("-" + mailbox);
+            getProperties().remove("-" + mailbox);
         }
     }
 
@@ -444,6 +475,7 @@ public class SimpleStorageManager implements StorageManager {
         if (!caseSensitive) {
             domain = domain.toLowerCase();
         }
+        Properties props = getProperties();
         if (props.getProperty("-" + makeEntry("", domain)) == null) {
             props.setProperty("-" + makeEntry("", domain), "R");
             if (autosave) { save(); }
@@ -461,7 +493,7 @@ public class SimpleStorageManager implements StorageManager {
         if (!caseSensitive) {
             mailbox = mailbox.toLowerCase();
         }
-        props.setProperty("-"+mailbox, entry);
+        getProperties().setProperty("-"+mailbox, entry);
         if (autosave) { save(); }
     }
 
@@ -471,7 +503,7 @@ public class SimpleStorageManager implements StorageManager {
      * @throws IOException
      */
     public boolean removeMailbox(String mailbox, String domain) {
-        boolean res = (props.remove("-" + makeEntry(mailbox, domain)) != null);
+        boolean res = (getProperties().remove("-" + makeEntry(mailbox, domain)) != null);
 
         if (autosave) { save(); }
         return res;
@@ -483,7 +515,7 @@ public class SimpleStorageManager implements StorageManager {
      * @throws IOException
      */
     public boolean removeDomain(String domain) {
-        boolean res = (props.remove("-" + makeEntry("", domain)) != null);
+        boolean res = (getProperties().remove("-" + makeEntry("", domain)) != null);
         if (autosave) { save(); }
         return res;
     }
@@ -494,7 +526,7 @@ public class SimpleStorageManager implements StorageManager {
      */
     public String[] getDomains() {
         List<String> list = new ArrayList<String>();
-        Iterator<Object> it = props.keySet().iterator();
+        Iterator<Object> it = getProperties().keySet().iterator();
         while (it.hasNext()) {
             String s = (String)it.next();
             if (s.startsWith("-@")) {
@@ -510,6 +542,7 @@ public class SimpleStorageManager implements StorageManager {
      * @return mailbox urls
      */
     public String[] getMailboxNames() {
+        Properties props = getProperties();
         List<String> list = new ArrayList<String>();
         Iterator<Object> it = props.keySet().iterator();
         while (it.hasNext()) {
@@ -532,6 +565,7 @@ public class SimpleStorageManager implements StorageManager {
      * @return mailbox urls
      */
     public String[] getMailboxNames(String domain) {
+        Properties props = getProperties();
         List<String> list = new ArrayList<String>();
         Iterator<Object> it = props.keySet().iterator();
         while (it.hasNext()) {
@@ -562,6 +596,7 @@ public class SimpleStorageManager implements StorageManager {
      * @return all aliases
      */
     public String[] getAliases() {
+        Properties props = getProperties();
         List<String> list = new ArrayList<String>();
         Iterator<Object> it = props.keySet().iterator();
         while (it.hasNext()) {
@@ -582,6 +617,8 @@ public class SimpleStorageManager implements StorageManager {
      * @return all aliases
      */
     public String[] getAliases(String mailbox, String domain) {
+        Properties props = getProperties();
+
         if (domain != null && !domain.equals("")) {
             mailbox = mailbox + "@" + domain;
         }
@@ -604,7 +641,7 @@ public class SimpleStorageManager implements StorageManager {
     /**
      * Converts all entries to lower case
      */
-    protected void toLowerCase() {
+    protected void toLowerCase(Properties props) {
         ArrayList<Entry> changes = new ArrayList<Entry>();
         Iterator<Object> it = props.keySet().iterator();
         while (it.hasNext()) {

@@ -88,6 +88,11 @@
       <artifactId>mercury-admin-console</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>org.abstracthorizon.mercury</groupId>
+      <artifactId>mercury-sync</artifactId>
+    </dependency>
+
     <!-- Test deps -->
 
     <dependency>
