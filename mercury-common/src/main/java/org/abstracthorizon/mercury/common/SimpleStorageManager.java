@@ -350,12 +350,12 @@ public class SimpleStorageManager implements StorageManager {
                 if (!mailbox.equals("postmaster") && (getProperties().getProperty("-" + makeEntry("postmaster", domain)) != null)) {
                     return findInbox("postmaster", domain, null);
                 } else {
-                    throw new UnknownUserException("User: " + makeEntry(mailbox, domain) + " now known", e);
+                    throw new UnknownUserException("User: " + makeEntry(mailbox, domain) + " not known", e);
                 }
             }
         }
 
-        throw new UnknownUserException("User: " + makeEntry(mailbox, domain) + " now known");
+        throw new UnknownUserException("User: " + makeEntry(mailbox, domain) + " not known");
     }
 
     public void authenticate(String mailbox, String domain, char[] password) {

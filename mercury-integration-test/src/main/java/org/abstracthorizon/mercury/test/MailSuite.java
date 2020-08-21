@@ -581,6 +581,9 @@ public class MailSuite implements Closeable {
                 throw new IOException("Cannot delete temp dir " + workDir.getAbsolutePath());
             }
         }
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException ignore) {}
     }
 
     private void deleteRecursively(File dir) {

@@ -64,11 +64,14 @@ public class TouchCommand extends SyncCommand {
                 long lastModified  = scanner.nextLong();
 
                 String path = scanner.next();
-                String filename = scanner.next();
+                String filename = null;
+                if (scanner.hasNext()) {
+                    filename = scanner.next();
+                }
                 if (path.startsWith(" ")) {
                     path = path.substring(1);
                 }
-                if (filename.startsWith(" ")) {
+                if (filename != null && filename.startsWith(" ")) {
                     filename = path.substring(1);
                 }
 

@@ -174,6 +174,13 @@ public class MercuryTestSyncSetup {
         return new RemoteFile(file.lastModified(), file.length(), "", file.getName());
     }
 
+    public static String dirLine(File file) {
+        long timestamp = file.lastModified() / 1000;
+        String path = file.getName();
+
+        return timestamp + " " + path;
+    }
+
     public static String dirLine(File root, File file) {
         long timestamp = file.lastModified() / 1000;
         String path = file.getName();

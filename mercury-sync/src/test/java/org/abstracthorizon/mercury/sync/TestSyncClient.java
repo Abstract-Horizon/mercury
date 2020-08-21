@@ -49,9 +49,24 @@ public class TestSyncClient {
 
             List<String> dirs = cachedDirs.toStringList();
 
-            assertEquals(asList(new String[] { dirLine(mailbox1, mailbox1), dirLine(mailbox1, folder1), dirLine(mailbox1, new File(folder1, "cur")), dirLine(mailbox1, new File(folder1, "del")), dirLine(mailbox1, new File(folder1, "new")),
-                    dirLine(mailbox1, new File(folder1, "tmp")), dirLine(mailbox2, mailbox2), dirLine(mailbox2, folder2), dirLine(mailbox2, new File(folder2, "cur")), dirLine(mailbox2, new File(folder2, "del")),
-                    dirLine(mailbox2, new File(folder2, "new")), dirLine(mailbox2, new File(folder2, "tmp")) }), dirs);
+
+            File root = setup.getServerDirSetup().getRoot();
+            File mailboxes = new File(root, "mailboxes");
+            assertEquals(asList(new String[] {
+                    dirLine(new File(root, "config")),
+                    dirLine(mailboxes),
+                    dirLine(mailboxes, mailbox1),
+                    dirLine(mailboxes, folder1),
+                    dirLine(mailboxes, new File(folder1, "cur")),
+                    dirLine(mailboxes, new File(folder1, "del")),
+                    dirLine(mailboxes, new File(folder1, "new")),
+                    dirLine(mailboxes, new File(folder1, "tmp")),
+                    dirLine(mailboxes, mailbox2),
+                    dirLine(mailboxes, folder2),
+                    dirLine(mailboxes, new File(folder2, "cur")),
+                    dirLine(mailboxes, new File(folder2, "del")),
+                    dirLine(mailboxes, new File(folder2, "new")),
+                    dirLine(mailboxes, new File(folder2, "tmp")) }), dirs);
 
         } finally {
             setup.cleanup();
@@ -68,7 +83,7 @@ public class TestSyncClient {
             File mailbox1 = folder1.getParentFile();
             File mailbox2 = folder2.getParentFile();
 
-            File deletedFiles = new File(mailbox1.getParentFile(), ".deleted_dirs");
+            File deletedFiles = new File(mailbox1.getParentFile().getParentFile(), ".deleted_dirs");
             TestUtils.writeFile(deletedFiles, "1 deleted\n" + "2 deleted/subdir1\n");
 
             setup.getServerCachedDirs().refresh();
@@ -77,9 +92,25 @@ public class TestSyncClient {
 
             List<String> dirs = cachedDirs.toStringList();
 
-            assertEquals(asList(new String[] { "-1 deleted", "-2 deleted/subdir1", dirLine(mailbox1, mailbox1), dirLine(mailbox1, folder1), dirLine(mailbox1, new File(folder1, "cur")), dirLine(mailbox1, new File(folder1, "del")),
-                    dirLine(mailbox1, new File(folder1, "new")), dirLine(mailbox1, new File(folder1, "tmp")), dirLine(mailbox2, mailbox2), dirLine(mailbox2, folder2), dirLine(mailbox2, new File(folder2, "cur")),
-                    dirLine(mailbox2, new File(folder2, "del")), dirLine(mailbox2, new File(folder2, "new")), dirLine(mailbox2, new File(folder2, "tmp")) }), dirs);
+            File root = setup.getServerDirSetup().getRoot();
+            File mailboxes = new File(root, "mailboxes");
+
+            assertEquals(asList(new String[] {
+                    dirLine(new File(root, "config")),
+                    "-1 deleted", "-2 deleted/subdir1",
+                    dirLine(mailboxes),
+                    dirLine(mailboxes, mailbox1),
+                    dirLine(mailboxes, folder1),
+                    dirLine(mailboxes, new File(folder1, "cur")),
+                    dirLine(mailboxes, new File(folder1, "del")),
+                    dirLine(mailboxes, new File(folder1, "new")),
+                    dirLine(mailboxes, new File(folder1, "tmp")),
+                    dirLine(mailboxes, mailbox2),
+                    dirLine(mailboxes, folder2),
+                    dirLine(mailboxes, new File(folder2, "cur")),
+                    dirLine(mailboxes, new File(folder2, "del")),
+                    dirLine(mailboxes, new File(folder2, "new")),
+                    dirLine(mailboxes, new File(folder2, "tmp")) }), dirs);
 
         } finally {
             setup.cleanup();
@@ -97,7 +128,7 @@ public class TestSyncClient {
 
             setup.getServerCachedDirs().refresh();
 
-            List<RemoteFile> list = setup.getSyncClient().list(0, setup.getServerCachedDirs().forPath("testmailbox2/.testfolder2/new")).stream()
+            List<RemoteFile> list = setup.getSyncClient().list(0, setup.getServerCachedDirs().forPath("mailboxes/testmailbox2/.testfolder2/new")).stream()
                     .map(f -> new RemoteFile(f.lastModified(), f.length(), "", f.getName())).collect(toList());
 
             assertEquals(asList(listLine(msg2), listLine(msg3)), list);
@@ -120,7 +151,7 @@ public class TestSyncClient {
             File remoteFile = File.createTempFile("downloaded-file", ".msg");
             remoteFile.deleteOnExit();
             try {
-                setup.getSyncClient().download("testmailbox2/.testfolder2/new/" + msg2.getName(), remoteFile);
+                setup.getSyncClient().download("mailboxes/testmailbox2/.testfolder2/new/" + msg2.getName(), remoteFile);
                 String localContent = loadFile(msg2);
                 String remoteContent = loadFile(remoteFile);
 
@@ -144,7 +175,7 @@ public class TestSyncClient {
 
             setup.getServerCachedDirs().refresh();
 
-            setup.getSyncClient().upload("testmailbox1/.testfolder1/new/" + msg2.getName(), msg2);
+            setup.getSyncClient().upload("mailboxes/testmailbox1/.testfolder1/new/" + msg2.getName(), msg2);
 
             File uploadedFile = new File(msg1.getParentFile(), msg2.getName());
             assertTrue("Cannot find uploaded file " + uploadedFile.getAbsolutePath(), uploadedFile.exists());
@@ -173,7 +204,7 @@ public class TestSyncClient {
 
             setup.getServerCachedDirs().refresh();
 
-            setup.getSyncClient().move("testmailbox1/.testfolder1/new/" + msg1.getName(), "testmailbox1/.testfolder1/new/1234567890", time2);
+            setup.getSyncClient().move("mailboxes/testmailbox1/.testfolder1/new/" + msg1.getName(), "mailboxes/testmailbox1/.testfolder1/new/1234567890", time2);
 
             File movedFile = new File(msg1.getParentFile(), "1234567890");
             assertTrue("Cannot find uploaded file " + movedFile.getAbsolutePath(), movedFile.exists());
@@ -198,7 +229,7 @@ public class TestSyncClient {
 
             assertTrue("Setup is incorrect, cannot find created message " + msg2.getAbsolutePath(), msg2.exists());
 
-            setup.getSyncClient().delete("testmailbox1/.testfolder1/new/" + msg2.getName(), System.currentTimeMillis());
+            setup.getSyncClient().delete("mailboxes/testmailbox1/.testfolder1/new/" + msg2.getName(), System.currentTimeMillis());
 
             assertFalse("Delete didn't work, message is still present " + msg2.getAbsolutePath(), msg2.exists());
         } finally {
@@ -217,7 +248,7 @@ public class TestSyncClient {
 
             long newModified = (folder.lastModified() / 1000) * 1000 + 1000;
 
-            setup.getSyncClient().touch("testmailbox1/.testfolder1", newModified);
+            setup.getSyncClient().touch("mailboxes/testmailbox1/.testfolder1", newModified);
 
             sleep1ms();
 
@@ -235,12 +266,12 @@ public class TestSyncClient {
 
             setup.getServerCachedDirs().refresh();
 
-            String path = "testmailbox1/.testfolder1";
-            File file = new File(setup.getServerDirSetup().getMailboxes(), path);
+            String path = "mailboxes/testmailbox1/.testfolder1";
+            File file = new File(setup.getServerDirSetup().getMailboxes().getParent(), path);
 
             assertTrue("Setup is incorrect, folder " + file.getPath() + " exists", !file.exists());
 
-            setup.getSyncClient().mkdir("testmailbox1", System.currentTimeMillis());
+            setup.getSyncClient().mkdir("mailboxes/testmailbox1", System.currentTimeMillis());
             setup.getSyncClient().mkdir(path, System.currentTimeMillis());
 
             assertTrue("Setup is incorrect, folder " + file.getPath() + " has not been created", file.exists() && file.isDirectory());
@@ -255,7 +286,7 @@ public class TestSyncClient {
         try {
             setup.create();
 
-            String path = "testmailbox1/.testfolder1";
+            String path = "mailboxes/testmailbox1/.testfolder1";
 
             File folder = setup.getServerDirSetup().createFolder("testmailbox1", ".testfolder1");
             setup.getServerCachedDirs().refresh();
@@ -284,7 +315,7 @@ public class TestSyncClient {
             File remoteFile = File.createTempFile("downloaded-file", ".msg");
             remoteFile.deleteOnExit();
             try {
-                RemoteFile exists = setup.getSyncClient().exists("testmailbox2/.testfolder2/new/" + msg2.getName());
+                RemoteFile exists = setup.getSyncClient().exists("mailboxes/testmailbox2/.testfolder2/new/" + msg2.getName());
 
                 assertTrue("File should exist, but returned that it doesn't", exists != null);
             } finally {

@@ -80,15 +80,55 @@ public class EmailClientAdapter {
     }
 
     public static List<String> getNewMessagesWithBodies(int imapPort, String mailbox, String domain, String password) throws IOException {
-        try {
-            Session session = Session.getDefaultInstance(new Properties());
-            Store store = session.getStore("imap");
-            store.connect("localhost", imapPort, mailbox + "@" + domain, password);
+        return runWithRetry(() -> {
             try {
+                Session session = Session.getDefaultInstance(new Properties());
+                Store store = session.getStore("imap");
+                store.connect("localhost", imapPort, mailbox + "@" + domain, password);
+                try {
+                    Folder inbox = store.getFolder("INBOX");
+                    inbox.open(Folder.READ_WRITE);
+
+                    Message[] messages = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
+
+                    sort(messages, (m1, m2) -> {
+                        try {
+                            return m2.getSentDate().compareTo(m1.getSentDate());
+                        } catch (MessagingException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+                    List<String> result = new ArrayList<String>();
+                    byte[] buf = new byte[102400];
+                    for (Message message : messages) {
+                        try (InputStream is = message.getInputStream()) {
+                            result.add("Subject: " + message.getSubject() + "\n\n" + new String(buf, 0, is.read(buf)));
+                        }
+                    }
+
+                    return result;
+                } finally {
+                    store.close();
+                }
+            } catch (NoSuchProviderException e) {
+                throw new IOException(e);
+            } catch (MessagingException e) {
+                throw new IOException(e);
+            }
+        });
+    }
+
+    public static List<String> getAllMessages(int imapPort, String mailbox, String domain, String password) throws IOException {
+        return runWithRetry(() -> {
+            try {
+                Session session = Session.getDefaultInstance(new Properties());
+                Store store = session.getStore("imap");
+                store.connect("localhost", imapPort, mailbox + "@" + domain, password);
                 Folder inbox = store.getFolder("INBOX");
                 inbox.open(Folder.READ_WRITE);
 
-                Message[] messages = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
+                Message[] messages = inbox.search(new FlagTerm(new Flags(), false));
 
                 sort(messages, (m1, m2) -> {
                     try {
@@ -107,70 +147,60 @@ public class EmailClientAdapter {
                 }
 
                 return result;
-            } finally {
-                store.close();
+            } catch (NoSuchProviderException e) {
+                throw new IOException(e);
+            } catch (MessagingException e) {
+                throw new IOException(e);
             }
-        } catch (NoSuchProviderException e) {
-            throw new IOException(e);
-        } catch (MessagingException e) {
-            throw new IOException(e);
-        }
-    }
-
-    public static List<String> getAllMessages(int imapPort, String mailbox, String domain, String password) throws IOException {
-        try {
-            Session session = Session.getDefaultInstance(new Properties());
-            Store store = session.getStore("imap");
-            store.connect("localhost", imapPort, mailbox + "@" + domain, password);
-            Folder inbox = store.getFolder("INBOX");
-            inbox.open(Folder.READ_WRITE);
-
-            Message[] messages = inbox.search(new FlagTerm(new Flags(), false));
-
-            sort(messages, (m1, m2) -> {
-                try {
-                    return m2.getSentDate().compareTo(m1.getSentDate());
-                } catch (MessagingException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
-            List<String> result = new ArrayList<String>();
-            byte[] buf = new byte[102400];
-            for (Message message : messages) {
-                try (InputStream is = message.getInputStream()) {
-                    result.add("Subject: " + message.getSubject() + "\n\n" + new String(buf, 0, is.read(buf)));
-                }
-            }
-
-            return result;
-        } catch (NoSuchProviderException e) {
-            throw new IOException(e);
-        } catch (MessagingException e) {
-            throw new IOException(e);
-        }
+        });
     }
 
     public static int markMessagesSeen(int imapPort, String mailbox, String domain, String password) throws IOException {
-        try {
-            Session session = Session.getDefaultInstance(new Properties());
-            Store store = session.getStore("imap");
-            store.connect("localhost", imapPort, mailbox + "@" + domain, password);
-            Folder inbox = store.getFolder("INBOX");
-            inbox.open(Folder.READ_WRITE);
+        return runWithRetry(() -> {
+            try {
+                Session session = Session.getDefaultInstance(new Properties());
+                Store store = session.getStore("imap");
+                store.connect("localhost", imapPort, mailbox + "@" + domain, password);
+                Folder inbox = store.getFolder("INBOX");
+                inbox.open(Folder.READ_WRITE);
 
-            Message[] messages = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
+                Message[] messages = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
 
-            int number = messages.length;
-            for (Message message : messages) {
-                message.setFlag(Flags.Flag.SEEN, true);
+                int number = messages.length;
+                for (Message message : messages) {
+                    message.setFlag(Flags.Flag.SEEN, true);
+                }
+
+                return number;
+            } catch (NoSuchProviderException e) {
+                throw new IOException(e);
+            } catch (MessagingException e) {
+                throw new IOException(e);
             }
+        });
+    }
 
-            return number;
-        } catch (NoSuchProviderException e) {
-            throw new IOException(e);
-        } catch (MessagingException e) {
-            throw new IOException(e);
+    public static interface RunWithRetry<T> {
+        T run() throws Exception;
+    }
+
+    public static <T> T runWithRetry(RunWithRetry<T> runWithRetry) throws IOException {
+        int i = 0;
+        Exception firstException = null;
+        while (i < 2) {
+            try {
+                return runWithRetry.run();
+            } catch (Exception e) {
+                if (firstException == null) {
+                    firstException = e;
+                }
+            }
+            i++;
         }
+
+        if (firstException instanceof IOException) {
+            throw (IOException) firstException;
+        }
+        throw new IOException(firstException);
     }
 }

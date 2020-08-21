@@ -44,7 +44,7 @@ public class TestMercurySetup {
 
     public void createConfigs() throws IOException {
         configDir = new File(tempDir, "config");
-        if (!configDir.mkdir()) {
+        if (!configDir.exists() && !configDir.mkdir()) {
             throw new IOException("Cannot create " + configDir.getAbsolutePath());
         }
 
