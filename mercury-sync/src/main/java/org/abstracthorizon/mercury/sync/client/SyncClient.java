@@ -625,7 +625,7 @@ public class SyncClient {
         }
 
         public String toString() {
-            return path + "/" + name + "(" + length + ", " + new SimpleDateFormat("yyyyMMdd HH:mm:ss.h").format(new Date(timestamp)) + ")";
+            return path + "/" + name + "(" + length + ", " + new SimpleDateFormat("yyyyMMdd HH:mm:ss.S").format(new Date(timestamp)) + ")";
         }
     }
 }
