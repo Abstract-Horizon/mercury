@@ -578,7 +578,7 @@ public class SyncClient {
         private long timestamp;
 
         public RemoteFile(long timestamp, long length, String path, String name) {
-            this.timestamp = timestamp;
+            this.timestamp = (timestamp / 1000L) * 1000L;
             this.length = length;
             this.path = path;
             this.name = name;
