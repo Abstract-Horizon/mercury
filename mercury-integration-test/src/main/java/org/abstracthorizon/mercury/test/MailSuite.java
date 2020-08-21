@@ -4,6 +4,7 @@ import static java.util.Arrays.asList;
 
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -11,19 +12,11 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.URL;
-import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SecureRandom;
 import java.security.Security;
-import java.security.SignatureException;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,9 +37,6 @@ import org.abstracthorizon.danube.service.server.MultiThreadServerSSLSocketServi
 import org.abstracthorizon.danube.service.server.MultiThreadServerSocketService;
 import org.abstracthorizon.danube.webdav.spring.SpringResourceWebDAVConnectionHandler;
 import org.abstracthorizon.extend.server.auth.SpringAuthConfiguration;
-import org.abstracthorizon.extend.server.deployment.DeploymentManager;
-import org.abstracthorizon.extend.server.deployment.DeploymentManagerImpl;
-import org.abstracthorizon.extend.server.deployment.danube.DanubeWarModuleLoader;
 import org.abstracthorizon.mercury.accounts.spring.MaildirKeystoreStorageManager;
 import org.abstracthorizon.mercury.adminconsole.AddAliasController;
 import org.abstracthorizon.mercury.adminconsole.AddDomainController;
@@ -68,22 +58,27 @@ import org.abstracthorizon.mercury.imap.IMAPConnectionHandler;
 import org.abstracthorizon.mercury.smtp.SMTPConnectionHandler;
 import org.abstracthorizon.mercury.smtp.filter.quiet.QuietFindStorageFilter;
 import org.abstracthorizon.mercury.smtp.filter.quiet.SMTPQuietFilterCommandFactory;
+import org.abstracthorizon.mercury.sync.SyncConnectionHandler;
+import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
+import org.abstracthorizon.mercury.sync.commands.SyncCommandFactory;
 import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
 import org.springframework.core.io.FileSystemResource;
 
-public class CreateMailSuite implements Closeable {
+public class MailSuite implements Closeable {
 
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
 
+    private String suiteName;
+
     private File workDir;
     private int smtpPort = 8125;
     private int imapPort = 8143;
     private int adminPort = -1;
-    private int syncPort = 8146;
+    private int syncPort = -1;
 
     private MaildirKeystoreStorageManager storageManager;
     private File configDir;
@@ -95,6 +90,7 @@ public class CreateMailSuite implements Closeable {
 
     private String keystorePassword = "password1234";
     private String adminConsoleKeystorePassword = "admin-console-keystore-password";
+    private String syncKeystorePassword = "password1234";
 
     private String serverDomain = "test.domain";
     private Map<String, String> userPasswords = new HashMap<String, String>();
@@ -116,46 +112,54 @@ public class CreateMailSuite implements Closeable {
     private KeyStoreModuleService keyStoreModuleService;
     private SpringAuthConfiguration configuration;
     private JAASAuthenticator jaasAuthenticator;
+    private MultiThreadServerSSLSocketService syncService;
+    private CachedDirs serverCachedDirs;
+    private SyncConnectionHandler syncConnectionHandler;
+    private SyncCommandFactory syncCommandFactory;
+    private File syncServiceTrustStoreFile;
+    private File syncServiceKeyStoreFile;
+    private File syncClientKeyStoreFile;
 
-    public CreateMailSuite() {
+    public MailSuite(String name) {
+        this.suiteName = name;
     }
 
-    public CreateMailSuite withWorkDir(File workDir) {
+    public MailSuite withWorkDir(File workDir) {
         this.workDir = workDir;
         return this;
     }
 
-    public CreateMailSuite withSMTPPort(int smtpPort) {
+    public MailSuite withSMTPPort(int smtpPort) {
         this.smtpPort = smtpPort;
         return this;
     }
 
-    public CreateMailSuite withIMAPPort(int imapPort) {
+    public MailSuite withIMAPPort(int imapPort) {
         this.imapPort = imapPort;
         return this;
     }
 
-    public CreateMailSuite withSyncPort(int syncPort) {
+    public MailSuite withSyncPort(int syncPort) {
         this.syncPort = syncPort;
         return this;
     }
 
-    public CreateMailSuite withAdminPort(int adminPort) {
+    public MailSuite withAdminPort(int adminPort) {
         this.adminPort = adminPort;
         return this;
     }
 
-    public CreateMailSuite withServerDomain(String serverDomain) {
+    public MailSuite withServerDomain(String serverDomain) {
         this.serverDomain = serverDomain;
         return this;
     }
 
-    public CreateMailSuite withUserWithPassword(String user, String password) {
+    public MailSuite withUserWithPassword(String user, String password) {
         userPasswords.put(user,  password);
         return this;
     }
 
-    public CreateMailSuite create() throws IOException {
+    public MailSuite init() throws IOException {
         if (workDir == null) {
             workDir = File.createTempFile("mailSuite", ".dir");
             if (!workDir.delete()) {
@@ -185,6 +189,8 @@ public class CreateMailSuite implements Closeable {
         storageManager.setKeyStoreFile(accountKeystoreFile);
         storageManager.setMailboxesPath(mercuryDataMailboxesDir);
         storageManager.setKeyStorePassword(keystorePassword);
+        storageManager.setCheckTimeout(500);
+        storageManager.init();
 
         // Inbound SMTP
 
@@ -210,6 +216,7 @@ public class CreateMailSuite implements Closeable {
                 new QuietFindStorageFilter(),
                 new DestinationMailboxFilter()
         ));
+        smtpQuietFilterCommandFactory.init();
 
         // Outbound SMTP ?
 
@@ -217,12 +224,14 @@ public class CreateMailSuite implements Closeable {
 
         imapService = new MultiThreadServerSocketService();
         imapService.setName("imap");
-        imapService.setPort(8143);
+        imapService.setPort(imapPort);
         imapService.setServerSocketTimeout(1000);
         imapService.setNewSocketTimeout(60000);
 
         imapConnectionHandler = new IMAPConnectionHandler();
         imapService.setConnectionHandler(imapConnectionHandler);
+
+        imapConnectionHandler.setStorageManager(storageManager);
 
         // Admin Console
 
@@ -297,9 +306,49 @@ public class CreateMailSuite implements Closeable {
 
         // Sync Server
 
+        if (syncPort > 0) {
+            syncServiceTrustStoreFile = new File(configDir, "sync-service-trust-store.keystore");
+            createKeystore(syncServiceTrustStoreFile, null, false, syncKeystorePassword);
+            syncServiceKeyStoreFile = new File(configDir, "sync-service-key-store.keystore");
+            createKeystore(syncServiceKeyStoreFile, null, true, syncKeystorePassword);
+
+            syncService = new MultiThreadServerSSLSocketService();
+            syncService.setName("sync");
+            syncService.setPort(syncPort);
+            syncService.setAddress("localhost");
+            syncService.setServerSocketTimeout(1000);
+            syncService.setNewSocketTimeout(60000);
+            syncService.setTrustStoreURL(syncServiceTrustStoreFile.toURI().toURL());
+            syncService.setTrustStorePassword(syncKeystorePassword);
+            syncService.setKeyStoreURL(syncServiceKeyStoreFile.toURI().toURL());
+            syncService.setKeyStorePassword(syncKeystorePassword);
+
+            serverCachedDirs = new CachedDirs();
+            serverCachedDirs.setRootFile(mercuryDataDir);
+            // cachedDirs.setSpecialFiles("deploy/mercury-data/config/accounts.properties, deploy/mercury-data/config/accounts.keystore");
+            // serverCachedDirs.setSpecialFiles("config/accounts.properties, config/accounts.keystore");
+
+            syncClientKeyStoreFile = new File(configDir, "sync-client-key-store.keystore");
+            createKeystore(syncClientKeyStoreFile, null, true, syncKeystorePassword);
+
+            syncConnectionHandler = new SyncConnectionHandler();
+            syncConnectionHandler.setCachedDirs(serverCachedDirs);
+            syncConnectionHandler.setKeystoreURL(syncClientKeyStoreFile.toURI().toURL());
+            syncConnectionHandler.setPassword(syncKeystorePassword);
+
+            syncService.setConnectionHandler(syncConnectionHandler);
+
+            syncCommandFactory = new SyncCommandFactory();
+            syncCommandFactory.setInactivityTimeout(60000);
+            syncConnectionHandler.setConnectionHandler(syncCommandFactory);
+        }
+
         // Sync Client
 
+        return this;
+    }
 
+    public MailSuite create() throws IOException {
         // Start methods
 
         smtpService.create();
@@ -311,8 +360,248 @@ public class CreateMailSuite implements Closeable {
         if (adminPort > 0) {
             danubeSSLServer.create();
         }
+        if (syncPort > 0) {
+            syncService.create();
+        }
 
         return this;
+    }
+
+    public void start() throws Exception {
+        smtpService.start();
+        // smtpConnectionHandler.start();
+        // smtpQuietFilterCommandFactory.start();
+        imapService.start();
+        // imapConnectionHandler.start();
+
+        if (adminPort > 0) {
+            danubeSSLServer.start();
+            keyStoreModuleService.start();
+        }
+        if (syncPort > 0) {
+            syncService.start();
+        }
+    }
+
+    public void stop() throws IOException {
+        if (syncPort > 0) {
+            syncService.stop();
+        }
+        if (adminPort > 0) {
+            keyStoreModuleService.stop();
+            danubeSSLServer.stop();
+        }
+
+        imapService.stop();
+        smtpService.stop();
+    }
+
+    public void destroy() {
+        if (adminPort > 0) {
+            danubeSSLServer.destroy();
+        }
+
+        imapService.destroy();
+        smtpService.destroy();
+    }
+
+    public void syncTrustMailSuite(MailSuite suite) throws IOException {
+        File clientKeyStoreFile = suite.getSyncClientKeyStoreFile();
+
+        try {
+            KeyStore clientKeystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            try (FileInputStream clientKeystoreStream = new FileInputStream(clientKeyStoreFile)) {
+                clientKeystore.load(clientKeystoreStream, syncKeystorePassword.toCharArray());
+            }
+
+            KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            try (FileInputStream clientKeystoreStream = new FileInputStream(syncServiceTrustStoreFile)) {
+                trustStore.load(clientKeystoreStream, syncKeystorePassword.toCharArray());
+            }
+
+            // trustStore.setCertificateEntry(suite.getName() + "-sync", clientKeystore.getCertificate("sync"));
+
+            trustStore.setCertificateEntry(suite.getName() + "-sslcert", clientKeystore.getCertificate("sslcert"));
+
+            try (OutputStream keystoreOutputStream = new FileOutputStream(syncServiceTrustStoreFile)) {
+                trustStore.store(keystoreOutputStream, syncKeystorePassword.toCharArray());
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+    }
+
+    private void createKeystore(File keystoreFile, String alias, boolean sslCert, String password) throws IOException {
+        try {
+            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            keystore.load(null, null);
+
+            if (alias != null) {
+                String name = "CN=" + alias + ", OU=, O=, L=, ST=, C=";
+
+                X509V3CertificateGenerator generator = new X509V3CertificateGenerator();
+                KeyPairGenerator kpGen = KeyPairGenerator.getInstance("RSA");
+                kpGen.initialize(1024);
+                KeyPair pair = kpGen.generateKeyPair();
+
+                generator.setSerialNumber(BigInteger.valueOf(1));
+                generator.setIssuerDN(new X509Principal(name));
+                generator.setNotBefore(new Date());
+                generator.setNotAfter(new Date(System.currentTimeMillis()+1000*60*60*24*365));
+                generator.setSubjectDN(new X509Principal(name));
+                generator.setPublicKey(pair.getPublic());
+                generator.setSignatureAlgorithm("SHA256withRSA");
+
+                Certificate cert = generator.generate(pair.getPrivate(), "BC");
+
+                keystore.setKeyEntry(alias, pair.getPrivate(), password.toCharArray(), new Certificate[]{cert});
+            }
+            if (sslCert) {
+                addSSLCertificate(keystore, "localhost", syncKeystorePassword);
+            }
+
+            try (OutputStream keystoreOutputStream = new FileOutputStream(keystoreFile)) {
+                keystore.store(keystoreOutputStream, password.toCharArray());
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+    }
+
+    private void createAccountKeystore(File mercuryDataConfigDir) throws IOException {
+        accountKeystoreFile = new File(mercuryDataConfigDir, "accounts.keystore");
+        try {
+            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            keystore.load(null, null);
+
+            for (Map.Entry<String, String> entry : userPasswords .entrySet()) {
+                String name = "CN=" + entry.getKey() + ", OU=, O=, L=, ST=, C=";
+
+                Security.addProvider(new BouncyCastleProvider());
+
+                X509V3CertificateGenerator generator = new X509V3CertificateGenerator();
+                KeyPairGenerator kpGen = KeyPairGenerator.getInstance("RSA");
+                kpGen.initialize(1024);
+                KeyPair pair = kpGen.generateKeyPair();
+
+                generator.setSerialNumber(BigInteger.valueOf(1));
+                generator.setIssuerDN(new X509Principal(name));
+                generator.setNotBefore(new Date());
+                generator.setNotAfter(new Date(System.currentTimeMillis()+1000*60*60*24*365));
+                generator.setSubjectDN(new X509Principal(name));
+                generator.setPublicKey(pair.getPublic());
+                generator.setSignatureAlgorithm("SHA256withRSA");
+
+                Certificate cert = generator.generate(pair.getPrivate(), "BC");
+
+                keystore.setKeyEntry(entry.getKey(), pair.getPrivate(), entry.getValue().toCharArray(), new Certificate[]{cert});
+            }
+
+            try (OutputStream keystoreOutputStream = new FileOutputStream(accountKeystoreFile)) {
+                keystore.store(keystoreOutputStream, keystorePassword.toCharArray());
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+    }
+
+    private void createCertificateKeystore(File keystoreFile) throws IOException {
+        try {
+            String domainName = "localhost";
+
+            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            keystore.load(null, null);
+
+            addSSLCertificate(keystore, domainName, adminConsoleKeystorePassword);
+
+            try (OutputStream keystoreOutputStream = new FileOutputStream(keystoreFile)) {
+                keystore.store(keystoreOutputStream, adminConsoleKeystorePassword.toCharArray());
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+    }
+
+    private void addSSLCertificate(KeyStore keystore, String domainName, String password) throws Exception {
+        String name = "CN=" + domainName + ", OU=, O=, L=, ST=, C=";
+
+
+        X509V3CertificateGenerator generator = new X509V3CertificateGenerator();
+        KeyPairGenerator kpGen = KeyPairGenerator.getInstance("RSA");
+        kpGen.initialize(1024);
+        KeyPair pair = kpGen.generateKeyPair();
+
+        generator.setSerialNumber(BigInteger.valueOf(1));
+        generator.setIssuerDN(new X509Principal(name));
+        generator.setNotBefore(new Date());
+        generator.setNotAfter(new Date(System.currentTimeMillis()+1000*60*60*24*365)); // a year
+        generator.setSubjectDN(new X509Principal(name));
+        generator.setPublicKey(pair.getPublic());
+        generator.setSignatureAlgorithm("SHA256withRSA");
+
+        Certificate cert = generator.generate(pair.getPrivate(), "BC");
+
+        keystore.setKeyEntry("sslcert", pair.getPrivate(), password.toCharArray(), new Certificate[]{cert});
+
+    }
+
+    private void createAccountProperties(File mercuryDataConfigDir) throws IOException {
+        accountPropertiesFile = new File(mercuryDataConfigDir, "accounts.properties");
+        try (FileWriter fileWriter = new FileWriter(accountPropertiesFile);
+                PrintWriter out = new PrintWriter(fileWriter)) {
+
+            out.println("server.domain=" + serverDomain);
+            out.println("-@" + serverDomain + "=");
+        }
+    }
+
+    private File createDir(File parent, String name) throws IOException {
+        File dir = new File(parent, name);
+        if (!dir.mkdirs()) {
+            throw new IOException("Failed to create dir " + dir.getAbsolutePath());
+        }
+        return dir;
+    }
+
+    @Override
+    public void close() throws IOException {
+        stop();
+        destroy();
+        if (workDir != null) {
+            deleteRecursively(workDir);
+            if (!workDir.delete()) {
+                throw new IOException("Cannot delete temp dir " + workDir.getAbsolutePath());
+            }
+        }
+    }
+
+    private void deleteRecursively(File dir) {
+        for (File f : dir.listFiles()) {
+            if (!f.getName().equals(".") && !f.getName().equals("..")) {
+                if (f.isFile()) {
+                    if (!f.delete()) {
+                        System.err.println("Failed to remove file  " + f.getAbsolutePath());
+                    }
+                } else if (f.isDirectory()) {
+                    deleteRecursively(f);
+                    if (!f.delete()) {
+                        System.err.println("Failed to remove dir   " + f.getAbsolutePath());
+                    }
+                } else {
+                    if (!f.delete()) {
+                        System.err.println("Failed to remove other " + f.getAbsolutePath());
+                    }
+                }
+            }
+        }
     }
 
     private Matcher prefix(String prefixString, Controller controller, FreeMarkerViewAdapter freeMarkerViewAdapter) {
@@ -346,203 +635,69 @@ public class CreateMailSuite implements Closeable {
         return pattern;
     }
 
-    public void start() throws Exception {
-        smtpService.start();
-        // smtpConnectionHandler.start();
-        // smtpQuietFilterCommandFactory.start();
-        imapService.start();
-        // imapConnectionHandler.start();
-
-        if (adminPort > 0) {
-            danubeSSLServer.start();
-            keyStoreModuleService.start();
-        }
-
+    public String getName() {
+        return suiteName;
     }
 
-    public void stop() throws Exception {
-        if (adminPort > 0) {
-            keyStoreModuleService.stop();
-            danubeSSLServer.stop();
-        }
-
-        // imapConnectionHandler.stop();
-        imapService.stop();
-        // smtpQuietFilterCommandFactory.stop();
-        // smtpConnectionHandler.stop();
-        smtpService.stop();
+    public int getSMTPPort() {
+        return smtpPort;
     }
 
-    public void destroy() {
-        if (adminPort > 0) {
-            danubeSSLServer.destroy();
-        }
-
-        // imapConnectionHandler.destroy();
-        imapService.destroy();
-        // smtpQuietFilterCommandFactory.destroy();
-        // smtpConnectionHandler.destroy();
-        smtpService.destroy();
+    public int getIMAPPort() {
+        return imapPort;
     }
 
-    private void createAccountKeystore(File mercuryDataConfigDir) throws IOException {
-        accountKeystoreFile = new File(mercuryDataConfigDir, "accounts.keystore");
-        try {
-            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-            keystore.load(null, null);
-
-            for (Map.Entry<String, String> entry : userPasswords .entrySet()) {
-                String name = "CN=" + entry.getKey() + ", OU=, O=, L=, ST=, C=";
-                //CN=Me, OU=Java Card Development, O=MyFirm, C=UK, ST=MyCity";
-
-                Security.addProvider(new BouncyCastleProvider());
-
-                X509V3CertificateGenerator generator = new X509V3CertificateGenerator();
-                KeyPairGenerator kpGen = KeyPairGenerator.getInstance("RSA");
-                kpGen.initialize(1024);
-                KeyPair pair = kpGen.generateKeyPair();
-
-                generator.setSerialNumber(BigInteger.valueOf(1));
-                generator.setIssuerDN(new X509Principal(name));
-                generator.setNotBefore(new Date());
-                generator.setNotAfter(new Date(System.currentTimeMillis()+1000*60*60*24*365)); // a year
-                generator.setSubjectDN(new X509Principal(name));
-                generator.setPublicKey(pair.getPublic());
-                generator.setSignatureAlgorithm("MD5WithRSAEncryption");
-
-                Certificate cert = generator.generate(pair.getPrivate(), "BC");
-
-                keystore.setKeyEntry(entry.getKey(), pair.getPrivate(), entry.getValue().toCharArray(), new Certificate[]{cert});
-            }
-
-            try (OutputStream keystoreOutputStream = new FileOutputStream(accountKeystoreFile)) {
-                keystore.store(keystoreOutputStream, keystorePassword.toCharArray());
-            }
-        } catch (NoSuchAlgorithmException e) {
-            throw new IOException(e);
-        } catch (CertificateException e) {
-            throw new IOException(e);
-        } catch (KeyStoreException e) {
-            throw new IOException(e);
-        } catch (InvalidKeyException e) {
-            throw new IOException(e);
-        } catch (IllegalStateException e) {
-            throw new IOException(e);
-        } catch (NoSuchProviderException e) {
-            throw new IOException(e);
-        } catch (SignatureException e) {
-            throw new IOException(e);
-        }
+    public int getAdminPort() {
+        return adminPort;
     }
 
-    private void createCertificateKeystore(File keystoreFile) throws IOException {
-        try {
-            String domainName = "localhost";
-
-            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-            keystore.load(null, null);
-
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-            keyPairGenerator.initialize(1024);
-            KeyPair KPair = keyPairGenerator.generateKeyPair();
-
-            X509V3CertificateGenerator v3CertGen = new X509V3CertificateGenerator();
-
-            v3CertGen.setSerialNumber(BigInteger.valueOf(Math.abs(new SecureRandom().nextInt())));
-            v3CertGen.setIssuerDN(new X509Principal("CN=" + domainName + ", OU=None, O=None L=None, C=None"));
-            v3CertGen.setNotBefore(new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24 * 30));
-            v3CertGen.setNotAfter(new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * 365*10)));
-            v3CertGen.setSubjectDN(new X509Principal("CN=" + domainName + ", OU=None, O=None L=None, C=None"));
-
-            v3CertGen.setPublicKey(KPair.getPublic());
-            v3CertGen.setSignatureAlgorithm("MD5WithRSAEncryption");
-
-            X509Certificate PKCertificate = v3CertGen.generateX509Certificate(KPair.getPrivate());
-
-            keystore.setKeyEntry("sslCert", KPair.getPrivate(),
-                    adminConsoleKeystorePassword.toCharArray(),
-                    new java.security.cert.Certificate[]{PKCertificate});
-
-            try (OutputStream keystoreOutputStream = new FileOutputStream(keystoreFile)) {
-                keystore.store(keystoreOutputStream, adminConsoleKeystorePassword.toCharArray());
-            }
-        } catch (NoSuchAlgorithmException e) {
-            throw new IOException(e);
-        } catch (CertificateException e) {
-            throw new IOException(e);
-        } catch (KeyStoreException e) {
-            throw new IOException(e);
-        } catch (InvalidKeyException e) {
-            throw new IOException(e);
-        } catch (IllegalStateException e) {
-            throw new IOException(e);
-        } catch (SignatureException e) {
-            throw new IOException(e);
-        }
-    }
-
-    private void createAccountProperties(File mercuryDataConfigDir) throws IOException {
-        accountPropertiesFile = new File(mercuryDataConfigDir, "accounts.properties");
-        try (FileWriter fileWriter = new FileWriter(accountPropertiesFile);
-                PrintWriter out = new PrintWriter(fileWriter)) {
-
-            out.println("server.domain = " + serverDomain);
-            out.println("-@s" + serverDomain + "=");
-
-        }
-    }
-
-    private File createDir(File parent, String name) throws IOException {
-        File dir = new File(parent, name);
-        if (!dir.mkdirs()) {
-            throw new IOException("Failed to create dir " + dir.getAbsolutePath());
-        }
-        return dir;
-    }
-
-    @Override
-    public void close() throws IOException {
-        if (workDir != null) {
-            deleteRecursively(workDir);
-            if (!workDir.delete()) {
-                throw new IOException("Cannot delete temp dir " + workDir.getAbsolutePath());
-            }
-        }
-    }
-
-    private void deleteRecursively(File dir) {
-        for (File f : dir.listFiles()) {
-            if (!f.getName().equals(".") && !f.getName().equals("..")) {
-                if (f.isFile()) {
-                    if (!f.delete()) {
-                        System.err.println("Failed to remove file  " + f.getAbsolutePath());
-                    }
-                } else if (f.isDirectory()) {
-                    deleteRecursively(f);
-                    if (!f.delete()) {
-                        System.err.println("Failed to remove dir   " + f.getAbsolutePath());
-                    }
-                } else {
-                    if (!f.delete()) {
-                        System.err.println("Failed to remove other " + f.getAbsolutePath());
-                    }
-                }
-            }
-        }
+    public int getSyncPort() {
+        return syncPort;
     }
 
     public File getWorkDir() {
         return workDir;
     }
 
+    public File getSyncClientKeyStoreFile() {
+        return syncClientKeyStoreFile;
+    }
+
+    public SyncConnectionHandler getSyncConnectionHandler() {
+        return syncConnectionHandler;
+    }
+
     public static void main(String[] args) throws Exception {
-        try (CreateMailSuite mailSuite = new CreateMailSuite()){
+        try (MailSuite mailSuite = new MailSuite("test")) {
             mailSuite
                 .withAdminPort(8443)
+                .init()
                 .create();
 
-
             mailSuite.start();
+
+            AdminConsoleAdapter consoleAdapter = new AdminConsoleAdapter(mailSuite.getAdminPort());
+            consoleAdapter.addMailbox("test.domain", "user", "pass", null);
+
+            EmailClientAdapter.sendEmail(mailSuite.getSMTPPort(), "Test message", "Message body");
+//
+//            JavamailTransport transport = new JavamailTransport();
+//            transport.setHost("localhost");
+//            transport.setPort(mailSuite.getSMTPPort());
+//            transport.setSSL(false);
+//
+//            Session session = Session.getDefaultInstance(new Properties(), null);
+//
+//            transport.send(new MimeMessage(session, new ByteArrayInputStream("Subject: x\n\nMessage body".getBytes())), asList(new Path("user", "test.domain")), new Path("test", "test.domain"));
+
+            Thread.sleep(1);
+
+            for (String message : EmailClientAdapter.getNewMessagesWithBodies(mailSuite.getIMAPPort(), "user", "test.domain", "pass")) {
+                System.out.println("------------------------------------------------------------");
+                System.out.println(message);
+            }
+            System.out.println("------------------------------------------------------------");
+
 
             System.out.println("Workdir " + mailSuite.getWorkDir());
             while (true) {
