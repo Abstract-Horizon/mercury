@@ -392,7 +392,7 @@ public class MercuryDirSetup {
                 int toFileLastModified = (int) (toFile.lastModified() / 1000);
 
                 if (toFileLastModified != fromFileLastModified && toFile.isFile()) {
-                    if (!to.getName().equals(".deleted_dirs")) {
+                    if (!toFile.getName().equals(".deleted_dirs")) {
                         result.add(toFile.getAbsolutePath() + " " + (toFile.isFile() ? "file" : "folder") + " has different modified date; from=" + fromFileLastModified + " to=" + toFileLastModified);
                         return result;
                     }
