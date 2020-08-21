@@ -25,6 +25,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
@@ -131,7 +132,7 @@ public class TestSyncClient {
             List<RemoteFile> list = setup.getSyncClient().list(0, setup.getServerCachedDirs().forPath("mailboxes/testmailbox2/.testfolder2/new")).stream()
                     .map(f -> new RemoteFile(f.lastModified(), f.length(), "", f.getName())).collect(toList());
 
-            assertEquals(asList(listLine(msg2), listLine(msg3)), list);
+            assertEquals(new ArrayList<>(asList(listLine(msg2), listLine(msg3))), new ArrayList<>(list));
         } finally {
             setup.cleanup();
         }
