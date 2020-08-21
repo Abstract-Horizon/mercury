@@ -18,6 +18,7 @@ import static org.abstracthorizon.mercury.sync.MercuryTestSyncSetup.dirLine;
 import static org.abstracthorizon.mercury.sync.MercuryTestSyncSetup.listLine;
 import static org.abstracthorizon.mercury.sync.MercuryTestSyncSetup.sleep1ms;
 import static org.abstracthorizon.mercury.sync.TestUtils.loadFile;
+import static org.junit.Assert.assertArrayEquals;
 //import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -30,6 +31,7 @@ import java.util.List;
 
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
 import org.abstracthorizon.mercury.sync.client.SyncClient.RemoteFile;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class TestSyncClient {
@@ -132,7 +134,7 @@ public class TestSyncClient {
             List<RemoteFile> list = setup.getSyncClient().list(0, setup.getServerCachedDirs().forPath("mailboxes/testmailbox2/.testfolder2/new")).stream()
                     .map(f -> new RemoteFile(f.lastModified(), f.length(), "", f.getName())).collect(toList());
 
-            assertEquals(new ArrayList<>(asList(listLine(msg2), listLine(msg3))), new ArrayList<>(list));
+            assertArrayEquals(new RemoteFile[] {listLine(msg2), listLine(msg3)}, list.toArray());
         } finally {
             setup.cleanup();
         }
