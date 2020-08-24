@@ -246,6 +246,7 @@ public class MailSuite implements Closeable {
             danubeSSLServer.setNewSocketTimeout(60000);
             danubeSSLServer.setKeyStorePassword(adminConsoleKeystorePassword );
             danubeSSLServer.setKeyStoreURL(danubeSSLKeystoreFile.toURI().toURL());
+            danubeSSLServer.setName("admin");
 
             httpServerConnectionHandler = new HTTPServerConnectionHandler();
             danubeSSLServer.setConnectionHandler(httpServerConnectionHandler);

@@ -388,8 +388,10 @@ public class SyncClient {
 
                     InputStream in = getInputStream();
                     byte[] buf = new byte[10240];
-                    FileOutputStream out = new FileOutputStream(localFile);
-                    try {
+
+                    File tempFile = new File(localFile.getParent(), ".temp-" + localFile.getName());
+
+                    try (FileOutputStream out = new FileOutputStream(tempFile)) {
                         int l = Math.min(buf.length, size);
 
                         int r = in.read(buf, 0, l);
@@ -399,8 +401,16 @@ public class SyncClient {
                             l = Math.min(buf.length, size);
                             r = in.read(buf, 0, l);
                         }
-                    } finally {
-                        out.close();
+                    }
+
+                    tempFile.setLastModified(lastModified * 1000);
+                    if (localFile.exists()) {
+                        if (!localFile.delete()) {
+                            throw new IOException("There is existing file and cannot remove it " + localFile.getName());
+                        }
+                    }
+                    if (!tempFile.renameTo(localFile)) {
+                        throw new IOException("Cannot rename " + tempFile.getName() + " to  " + localFile.getName());
                     }
 
                     localFile.setLastModified(lastModified * 1000);

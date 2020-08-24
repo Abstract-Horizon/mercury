@@ -11,6 +11,7 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.net.ssl.HostnameVerifier;
@@ -118,5 +119,11 @@ public class AdminConsoleAdapter {
         URL url = new URL("https://localhost:" + port + "/add_mailbox?domain=" + domainName + "&mailbox=" + mailbox + "&password=" + password + "&password2="+ password);
 
         collectResult(decorateConnection(url.openConnection()), output);
+    }
+
+    public void changePassword(String domainName, String mailbox, String oldPassword, String newPassword) throws IOException {
+        URL url = new URL("https://localhost:" + port + "/password?mailbox=" + mailbox + "&domain=" + domainName + "&oldpassword=" + oldPassword +  "&password=" + newPassword + "&password2="+ newPassword);
+
+        collectResult(decorateConnection(url.openConnection()), new ArrayList<>());
     }
 }

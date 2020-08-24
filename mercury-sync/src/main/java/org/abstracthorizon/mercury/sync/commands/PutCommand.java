@@ -26,6 +26,7 @@ import java.util.Scanner;
 import java.util.stream.Stream;
 
 import org.abstracthorizon.mercury.common.command.CommandException;
+import org.abstracthorizon.mercury.sync.SyncResponse;
 import org.abstracthorizon.mercury.sync.SyncResponses;
 import org.abstracthorizon.mercury.sync.SyncSession;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDir;
@@ -159,18 +160,20 @@ public class PutCommand extends SyncCommand {
                 tempFile.setLastModified(lastModified * 1000);
                 if (file.exists()) {
                     if (!file.delete()) {
-                        // TODO
+                        logger.error("Problem deleting file " + file.getAbsolutePath(), e);
+                        connection.sendResponse(new SyncResponse("ERROR", "Cannot delete " + file.getName()));
                     }
                 }
                 if (!tempFile.renameTo(file)) {
-                    // TODO
+                    logger.error("Problem renaming file " + tempFile.getAbsolutePath() + " to " + file.getAbsolutePath(), e);
+                    connection.sendResponse(new SyncResponse("ERROR", "Cannot rename temp file " + tempFile.getAbsolutePath() + " to " + file.getName()));
                 }
 
                 file.setLastModified(lastModified * 1000);
                 selectedDirectory.addFile(file);
             }
 
-                connection.sendResponse(SyncResponses.getCommandReadyResponse("PUT", now));
+            connection.sendResponse(SyncResponses.getCommandReadyResponse("PUT", now));
         } catch (FileNotFoundException notFound) {
             connection.sendResponse(SyncResponses.PATH_DOES_NOT_EXIST);
         } catch (IOException e) {
