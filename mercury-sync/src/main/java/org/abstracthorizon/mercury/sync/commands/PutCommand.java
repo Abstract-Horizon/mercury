@@ -143,30 +143,37 @@ public class PutCommand extends SyncCommand {
                 byte[] buf = new byte[10240];
 
                 File tempFile = new File(file.getParent(), ".temp-" + file.getName());
-
-                FileOutputStream out = new FileOutputStream(tempFile);
                 try {
-                    int l = Math.min(buf.length, size);
-                    int r = in.read(buf, 0, l);
-                    while (r > 0 && size > 0) {
-                        size = size - r;
-                        out.write(buf, 0, r);
-                        l = Math.min(buf.length, size);
-                        r = in.read(buf, 0, l);
+                    FileOutputStream out = new FileOutputStream(tempFile);
+                    try {
+                        int l = Math.min(buf.length, size);
+                        int r = in.read(buf, 0, l);
+                        while (r > 0 && size > 0) {
+                            size = size - r;
+                            out.write(buf, 0, r);
+                            l = Math.min(buf.length, size);
+                            r = in.read(buf, 0, l);
+                        }
+                    } finally {
+                        out.close();
+                    }
+                    tempFile.setLastModified(lastModified * 1000);
+                    if (file.exists()) {
+                        if (!file.delete()) {
+                            logger.error("Problem deleting file " + file.getAbsolutePath());
+                            connection.sendResponse(new SyncResponse("ERROR", "Cannot delete " + file.getName()));
+                        }
+                    }
+                    if (!tempFile.renameTo(file)) {
+                        logger.error("Problem renaming file " + tempFile.getAbsolutePath() + " to " + file.getAbsolutePath());
+                        connection.sendResponse(new SyncResponse("ERROR", "Cannot rename temp file " + tempFile.getAbsolutePath() + " to " + file.getName()));
                     }
                 } finally {
-                    out.close();
-                }
-                tempFile.setLastModified(lastModified * 1000);
-                if (file.exists()) {
-                    if (!file.delete()) {
-                        logger.error("Problem deleting file " + file.getAbsolutePath(), e);
-                        connection.sendResponse(new SyncResponse("ERROR", "Cannot delete " + file.getName()));
+                    if (tempFile.exists()) {
+                        if (!tempFile.delete()) {
+                            logger.error("Problem deleting temp file " + tempFile.getAbsolutePath());
+                        }
                     }
-                }
-                if (!tempFile.renameTo(file)) {
-                    logger.error("Problem renaming file " + tempFile.getAbsolutePath() + " to " + file.getAbsolutePath(), e);
-                    connection.sendResponse(new SyncResponse("ERROR", "Cannot rename temp file " + tempFile.getAbsolutePath() + " to " + file.getName()));
                 }
 
                 file.setLastModified(lastModified * 1000);

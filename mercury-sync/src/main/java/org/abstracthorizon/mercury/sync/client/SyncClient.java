@@ -38,6 +38,8 @@ import org.abstracthorizon.mercury.sync.cachedir.CachedDir;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
 import org.abstracthorizon.mercury.sync.cachedir.RemoteCachedDir;
 import org.abstracthorizon.mercury.sync.cachedir.RemovedCachedDir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Sync client
@@ -45,6 +47,8 @@ import org.abstracthorizon.mercury.sync.cachedir.RemovedCachedDir;
  * @author Daniel Sendula, David Sendula
  */
 public class SyncClient {
+
+    protected static final Logger logger = LoggerFactory.getLogger(SyncClient.class);
 
     /** Keystore password */
     protected String keystorePassword;
@@ -390,27 +394,36 @@ public class SyncClient {
                     byte[] buf = new byte[10240];
 
                     File tempFile = new File(localFile.getParent(), ".temp-" + localFile.getName());
+                    try {
+                        try (FileOutputStream out = new FileOutputStream(tempFile)) {
+                            int l = Math.min(buf.length, size);
 
-                    try (FileOutputStream out = new FileOutputStream(tempFile)) {
-                        int l = Math.min(buf.length, size);
-
-                        int r = in.read(buf, 0, l);
-                        while (r > 0 && size > 0) {
-                            size = size - r;
-                            out.write(buf, 0, r);
-                            l = Math.min(buf.length, size);
-                            r = in.read(buf, 0, l);
+                            int r = in.read(buf, 0, l);
+                            while (r > 0 && size > 0) {
+                                size = size - r;
+                                out.write(buf, 0, r);
+                                l = Math.min(buf.length, size);
+                                r = in.read(buf, 0, l);
+                            }
                         }
-                    }
 
-                    tempFile.setLastModified(lastModified * 1000);
-                    if (localFile.exists()) {
-                        if (!localFile.delete()) {
-                            throw new IOException("There is existing file and cannot remove it " + localFile.getName());
+                        tempFile.setLastModified(lastModified * 1000);
+                        if (localFile.exists()) {
+                            if (!localFile.delete()) {
+                                logger.error("Problem deleting file " + localFile.getAbsolutePath());
+                                throw new IOException("There is existing file and cannot remove it " + localFile.getName());
+                            }
                         }
-                    }
-                    if (!tempFile.renameTo(localFile)) {
-                        throw new IOException("Cannot rename " + tempFile.getName() + " to  " + localFile.getName());
+                        if (!tempFile.renameTo(localFile)) {
+                            logger.error("Problem renaming file " + tempFile.getAbsolutePath() + " to " + localFile.getAbsolutePath());
+                            throw new IOException("Cannot rename " + tempFile.getName() + " to  " + localFile.getName());
+                        }
+                    } finally {
+                        if (tempFile.exists()) {
+                            if (!tempFile.delete()) {
+                                logger.error("Problem deleting temp file " + tempFile.getAbsolutePath());
+                            }
+                        }
                     }
 
                     localFile.setLastModified(lastModified * 1000);
