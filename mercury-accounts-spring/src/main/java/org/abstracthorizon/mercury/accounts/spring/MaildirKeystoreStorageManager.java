@@ -68,9 +68,6 @@ public class MaildirKeystoreStorageManager extends SimpleStorageManager
     /** Keystore URL */
     private File keystoreFile;
 
-    /** Timestamp when it was load last time */
-    private long loadTimestamp;
-
     /** Keystore password */
     private String keystorePassword;
 
@@ -83,7 +80,10 @@ public class MaildirKeystoreStorageManager extends SimpleStorageManager
     /** Options */
     private Map<String, Object> options = new HashMap<String, Object>();
 
-    private KeyStore loadedKeyStore;
+    /** Timestamp when it was load last time */
+    private long loadTimestamp;
+
+    private KeyStore keyStore;
 
     /**
      * Constructor
@@ -211,8 +211,7 @@ public class MaildirKeystoreStorageManager extends SimpleStorageManager
         IOException, NoSuchAlgorithmException, CertificateException {
 
         logger.debug("Loading keystore from " + keystoreFile.getAbsolutePath());
-        InputStream keystoreInputStream = new FileInputStream(keystoreFile);
-        try {
+        try (InputStream keystoreInputStream = new FileInputStream(keystoreFile)) {
             KeyStore keyStore;
             if ((keystoreProvider == null) || (keystoreProvider.length() == 0)) {
                 keyStore = KeyStore.getInstance(keystoreType);
@@ -223,10 +222,20 @@ public class MaildirKeystoreStorageManager extends SimpleStorageManager
             /* Load KeyStore contents from file */
             keyStore.load(keystoreInputStream, keystorePassword.toCharArray());
             return keyStore;
-
-        } finally {
-            keystoreInputStream.close();
         }
+    }
+
+    public KeyStore getKeyStore() throws IOException, KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException {
+        if (keystoreFile.exists()) {
+            long keystoreLastModified = keystoreFile.lastModified();
+            if (keystoreLastModified > loadTimestamp) {
+                loadTimestamp = keystoreLastModified;
+                keyStore = loadKeyStore();
+                // logger.info("Reloaded keystore " + keystoreFile.getAbsolutePath());
+            }
+            return keyStore;
+        }
+        throw new IOException("Keystore does not exist " + keystoreFile.getAbsolutePath());
     }
 
     /**
@@ -243,12 +252,8 @@ public class MaildirKeystoreStorageManager extends SimpleStorageManager
         IOException, NoSuchAlgorithmException, CertificateException {
 
         logger.debug("Storing keystore to " + keystoreFile.getAbsolutePath());
-        OutputStream keystoreOutputStream = new FileOutputStream(keystoreFile);
-
-        try {
+        try (OutputStream keystoreOutputStream = new FileOutputStream(keystoreFile)) {
             keystore.store(keystoreOutputStream, keystorePassword.toCharArray());
-        } finally {
-            keystoreOutputStream.close();
         }
     }
 
@@ -473,21 +478,17 @@ public class MaildirKeystoreStorageManager extends SimpleStorageManager
 
     public void authenticate(String mailbox, String domain, char[] password) {
         try {
-            long timestamp = this.keystoreFile.lastModified();
-            if (timestamp != this.loadTimestamp) {
-                loadedKeyStore = loadKeyStore();
-                this.loadTimestamp = timestamp;
-            }
+            KeyStore keystore = getKeyStore();
 
             String entry = makeEntry(mailbox, domain);
-            Key key = loadedKeyStore.getKey(entry, password);
+            Key key = keystore.getKey(entry, password);
 
             if (key == null) {
                 throw new UserRejectedException("User: " + makeEntry(mailbox, domain) + " cannot be authenticated");
             }
             /* byte[] encoded = */key.getEncoded();
 
-            /* Certificate[] certs = */loadedKeyStore.getCertificateChain(entry);
+            /* Certificate[] certs = */keystore.getCertificateChain(entry);
         } catch (KeyStoreException e) {
             throw new RuntimeException(e);
         } catch (NoSuchProviderException e) {
@@ -497,11 +498,11 @@ public class MaildirKeystoreStorageManager extends SimpleStorageManager
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         } catch (CertificateException e) {
-            throw new UserRejectedException("User: " + makeEntry(mailbox, domain) + " cannot be authenticated");
+            throw new UserRejectedException("User: " + makeEntry(mailbox, domain) + " cannot be authenticated (cert problem)");
         } catch (IOException e) {
             throw new RuntimeException(e);
         } catch (UnrecoverableKeyException e) {
-            throw new UserRejectedException("User: " + makeEntry(mailbox, domain) + " cannot be authenticated");
+            throw new UserRejectedException("User: " + makeEntry(mailbox, domain) + " cannot be authenticated (key problem)");
         }
     }
 }

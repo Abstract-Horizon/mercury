@@ -1,6 +1,7 @@
 package org.abstracthorizon.mercury.test;
 
 import static java.util.Arrays.asList;
+import static org.abstracthorizon.mercury.test.Utils.runWithRetry;
 
 import java.io.Closeable;
 import java.io.File;
@@ -352,17 +353,14 @@ public class MailSuite implements Closeable {
     public MailSuite create() throws IOException {
         // Start methods
 
-        smtpService.create();
-        // smtpConnectionHandler.create();
-        // smtpQuietFilterCommandFactory.create();
-        imapService.create();
-        // imapConnectionHandler.create();
+        runWithRetry(() -> smtpService.create());
+        runWithRetry(() -> imapService.create());
 
         if (adminPort > 0) {
-            danubeSSLServer.create();
+            runWithRetry(() -> danubeSSLServer.create());
         }
         if (syncPort > 0) {
-            syncService.create();
+            runWithRetry(() -> syncService.create());
         }
 
         return this;
@@ -671,6 +669,14 @@ public class MailSuite implements Closeable {
         return syncConnectionHandler;
     }
 
+    public File getAccountPropertiesFile() {
+        return accountPropertiesFile;
+    }
+
+    public File getAccountKeystoreFile() {
+        return accountKeystoreFile;
+    }
+
     public static void main(String[] args) throws Exception {
         try (MailSuite mailSuite = new MailSuite("test")) {
             mailSuite
@@ -680,7 +686,7 @@ public class MailSuite implements Closeable {
 
             mailSuite.start();
 
-            AdminConsoleAdapter consoleAdapter = new AdminConsoleAdapter(mailSuite.getAdminPort());
+            AdminConsoleAdapter consoleAdapter = new AdminConsoleAdapter(mailSuite);
             consoleAdapter.addMailbox("test.domain", "user", "pass", null);
 
             EmailClientAdapter.sendEmail(mailSuite.getSMTPPort(), "Test message", "Message body");

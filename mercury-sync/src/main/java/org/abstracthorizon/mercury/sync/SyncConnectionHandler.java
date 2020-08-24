@@ -114,7 +114,22 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         return persistConnection && !syncConnection.isDropConnection();
     }
 
+    public void syncWith(String hostAndPort) throws IOException {
+        int i = hostAndPort.indexOf(':');
+        if (i < 0) {
+            throw new IllegalArgumentException("Parameter must be in <host>:<port> format");
+        }
+        try {
+            int port = Integer.parseInt(hostAndPort.substring(i + 1));
+            syncWith(hostAndPort.substring(0, i), port);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Parameter's port portion must be an integer");
+        }
+    }
+
     public void syncWith(String address, int port) throws IOException {
+        logger.debug("Syncing with " + address + ":" + port);
+        long now = System.currentTimeMillis();
         cachedDirs.refresh();
 
         SyncClient syncClient = new SyncClient();
@@ -134,6 +149,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         processCachedDir(syncClient, localRoot, remoteRoot);
 
         lastSynced = thisSyncedTime;
+        logger.info("Syncing with " + address + ":" + port + " lasted " + (System.currentTimeMillis() - now) + "ms");
     }
 
     private void processCachedDir(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {

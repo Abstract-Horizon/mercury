@@ -43,12 +43,12 @@ public class TestTwoServerSyncing {
             sourceMailSuite.start();
             destMailSuite.start();
 
-            AdminConsoleAdapter destConsoleAdapter = new AdminConsoleAdapter(sourceMailSuite.getAdminPort());
+            AdminConsoleAdapter destConsoleAdapter = new AdminConsoleAdapter(sourceMailSuite);
             destConsoleAdapter.addMailbox("test.domain", "user", "pass", null);
 
             sendEmail(sourceMailSuite.getSMTPPort(), "Test message", "Message body");
 
-            Thread.sleep(1);
+            Thread.sleep(1500);
 
             List<String> sourceMessagesSubjects = getNewMessagesSubjects(sourceMailSuite.getIMAPPort(), "user", "test.domain", "pass");
             assertEquals(asList("Subject: Test message"), sourceMessagesSubjects);
@@ -56,10 +56,10 @@ public class TestTwoServerSyncing {
 
             destMailSuite.getSyncConnectionHandler().syncWith("localhost", sourceMailSuite.getSyncPort());
 
+            Thread.sleep(1000);
+
             List<String> sourceMessages = getNewMessagesWithBodies(sourceMailSuite.getIMAPPort(), "user", "test.domain", "pass");
             assertEquals(asList("Subject: Test message\n\nMessage body\r\n"), sourceMessages);
-
-            Thread.sleep(1000);
 
             List<String> destMessages = getNewMessagesWithBodies(destMailSuite.getIMAPPort(), "user", "test.domain", "pass");
             assertEquals(asList("Subject: Test message\n\nMessage body\r\n"), destMessages);
@@ -67,7 +67,7 @@ public class TestTwoServerSyncing {
     }
 
     @Test
-    public void testSendingRemotelygMailSyncingAndReceivingFromLocalServer() throws Exception {
+    public void testSendingRemotelyMailSyncingAndReceivingFromLocalServer() throws Exception {
         try (MailSuite sourceMailSuite = new MailSuite("source");
                 MailSuite destMailSuite = new MailSuite("dest");) {
             sourceMailSuite
@@ -97,18 +97,20 @@ public class TestTwoServerSyncing {
             sourceMailSuite.start();
             destMailSuite.start();
 
-            AdminConsoleAdapter sourceConsoleAdapter = new AdminConsoleAdapter(destMailSuite.getAdminPort());
+            AdminConsoleAdapter sourceConsoleAdapter = new AdminConsoleAdapter(destMailSuite);
             sourceConsoleAdapter.addMailbox("test.domain", "user", "pass", null);
 
             sendEmail(destMailSuite.getSMTPPort(), "Test message", "Message body");
 
-            Thread.sleep(1);
+            Thread.sleep(1500);
 
             List<String> destMessagesSubjects = getNewMessagesSubjects(destMailSuite.getIMAPPort(), "user", "test.domain", "pass");
             assertEquals(asList("Subject: Test message"), destMessagesSubjects);
 
 
             destMailSuite.getSyncConnectionHandler().syncWith("localhost", sourceMailSuite.getSyncPort());
+
+            Thread.sleep(1000);
 
             List<String> destMessages = getNewMessagesWithBodies(sourceMailSuite.getIMAPPort(), "user", "test.domain", "pass");
             assertEquals(asList("Subject: Test message\n\nMessage body\r\n"), destMessages);
@@ -151,25 +153,29 @@ public class TestTwoServerSyncing {
             sourceMailSuite.start();
             destMailSuite.start();
 
-            AdminConsoleAdapter sourceConsoleAdapter = new AdminConsoleAdapter(destMailSuite.getAdminPort());
+            AdminConsoleAdapter sourceConsoleAdapter = new AdminConsoleAdapter(destMailSuite);
             sourceConsoleAdapter.addMailbox("test.domain", "user", "pass", null);
 
             sendEmail(destMailSuite.getSMTPPort(), "Test message", "Message body");
 
+            Thread.sleep(1500);
+
             destMailSuite.getSyncConnectionHandler().syncWith("localhost", sourceMailSuite.getSyncPort());
 
-            Thread.sleep(1000);
+            Thread.sleep(1500);
 
             sourceConsoleAdapter.changePassword("test.domain", "user", "pass", "pass2");
 
             destMailSuite.getSyncConnectionHandler().syncWith("localhost", sourceMailSuite.getSyncPort());
 
-            Thread.sleep(1000);
+            Thread.sleep(1500);
 
             List<String> destMessagesSubjects = getNewMessagesSubjects(destMailSuite.getIMAPPort(), "user", "test.domain", "pass2");
             assertEquals(asList("Subject: Test message"), destMessagesSubjects);
 
             destMailSuite.getSyncConnectionHandler().syncWith("localhost", sourceMailSuite.getSyncPort());
+
+            Thread.sleep(1500);
 
             List<String> sourceMessages = getNewMessagesWithBodies(destMailSuite.getIMAPPort(), "user", "test.domain", "pass2");
             assertEquals(asList("Subject: Test message\n\nMessage body\r\n"), sourceMessages);

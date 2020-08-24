@@ -22,7 +22,7 @@ public class TestSingleServerSetup {
                 .create()
                 .start();
 
-            AdminConsoleAdapter consoleAdapter = new AdminConsoleAdapter(mailSuite.getAdminPort());
+            AdminConsoleAdapter consoleAdapter = new AdminConsoleAdapter(mailSuite);
             consoleAdapter.addMailbox("test.domain", "user", "pass", null);
 
             sendEmail(mailSuite.getSMTPPort(), "Test message", "Message body");

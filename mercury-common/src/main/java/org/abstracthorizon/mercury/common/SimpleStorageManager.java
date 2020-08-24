@@ -79,7 +79,7 @@ public class SimpleStorageManager implements StorageManager {
 
     protected long propertiesFileTimestamp = 0;
 
-    protected long lastChecked = 0;
+    protected long propertiesLastChecked = 0;
 
     protected long checkTimeout = 5000;
 
@@ -195,13 +195,18 @@ public class SimpleStorageManager implements StorageManager {
     protected Properties getProperties() {
         if (propertiesFile.exists()) {
             long now = System.currentTimeMillis();
-            if (lastChecked + checkTimeout > now) {
+            if (propertiesLastChecked + checkTimeout > now) {
                 return properties;
             }
             long propertiesFileTimestamp = propertiesFile.lastModified();
             if (this.propertiesFileTimestamp != propertiesFileTimestamp) {
                 try {
                     load();
+//                    logger.info("Reloaded properties " + propertiesFile.getAbsolutePath() + "\n"
+//                            + String.join("\n", properties.entrySet().stream()
+//                                    .map(e -> e.getKey() + "=" + e.getValue())
+//                                    .collect(toList()))
+//                                );
                 } catch (Exception ignore) {}
             }
             this.propertiesFileTimestamp = propertiesFileTimestamp;
@@ -354,6 +359,8 @@ public class SimpleStorageManager implements StorageManager {
                 }
             }
         }
+
+        // logger.info("User: " + makeEntry(mailbox, domain) + " not known. Properties " + properties.toString());
 
         throw new UnknownUserException("User: " + makeEntry(mailbox, domain) + " not known");
     }

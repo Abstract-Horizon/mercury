@@ -57,17 +57,17 @@ public class TestThreeServerSyncing {
             twoMailSuite.start();
             threeMailSuite.start();
 
-            AdminConsoleAdapter oneConsoleAdapter = new AdminConsoleAdapter(oneMailSuite.getAdminPort());
+            AdminConsoleAdapter oneConsoleAdapter = new AdminConsoleAdapter(oneMailSuite);
             oneConsoleAdapter.addMailbox("test.domain", "user", "pass", null);
 
             sendEmail(oneMailSuite.getSMTPPort(), "Test message", "Message body");
 
-            Thread.sleep(1);
+            Thread.sleep(1500);
 
             oneMailSuite.getSyncConnectionHandler().syncWith("localhost", twoMailSuite.getSyncPort());
-            Thread.sleep(2000);
+            Thread.sleep(1500);
             twoMailSuite.getSyncConnectionHandler().syncWith("localhost", threeMailSuite.getSyncPort());
-            Thread.sleep(2000);
+            Thread.sleep(1500);
 
             List<String> destMessages = getNewMessagesWithBodies(threeMailSuite.getIMAPPort(), "user", "test.domain", "pass");
             assertEquals(asList("Subject: Test message\n\nMessage body\r\n"), destMessages);
@@ -120,25 +120,26 @@ public class TestThreeServerSyncing {
             localMailSuite.start();
             backupMailSuite.start();
 
-            AdminConsoleAdapter oneConsoleAdapter = new AdminConsoleAdapter(remoteMailSuite.getAdminPort());
+            AdminConsoleAdapter oneConsoleAdapter = new AdminConsoleAdapter(remoteMailSuite);
             oneConsoleAdapter.addMailbox("test.domain", "user", "pass", null);
 
-            Thread.sleep(1);
+            Thread.sleep(1500);
 
             localMailSuite.getSyncConnectionHandler().syncWith("localhost", remoteMailSuite.getSyncPort());
             backupMailSuite.getSyncConnectionHandler().syncWith("localhost", localMailSuite.getSyncPort());
 
-            Thread.sleep(2000);
+            Thread.sleep(1500);
 
             sendEmail(remoteMailSuite.getSMTPPort(), "Test remote message", "Message remote body");
             sendEmail(remoteMailSuite.getSMTPPort(), "Test local message", "Message local body");
 
-            Thread.sleep(2000);
+            Thread.sleep(1500);
             localMailSuite.getSyncConnectionHandler().syncWith("localhost", remoteMailSuite.getSyncPort());
-            Thread.sleep(2000);
+            Thread.sleep(1500);
             backupMailSuite.getSyncConnectionHandler().syncWith("localhost", remoteMailSuite.getSyncPort());
-            Thread.sleep(1000);
+            Thread.sleep(1500);
             backupMailSuite.getSyncConnectionHandler().syncWith("localhost", localMailSuite.getSyncPort());
+            Thread.sleep(1500);
 
             HashSet<String> expectedEmailSubjects = new HashSet<>(asList("Subject: Test remote message", "Subject: Test local message"));
             assertEquals(

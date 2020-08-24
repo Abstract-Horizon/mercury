@@ -3,6 +3,7 @@ package org.abstracthorizon.mercury.test;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.sort;
 import static java.util.stream.Collectors.toList;
+import static org.abstracthorizon.mercury.test.Utils.functionWithRetry;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -80,7 +81,7 @@ public class EmailClientAdapter {
     }
 
     public static List<String> getNewMessagesWithBodies(int imapPort, String mailbox, String domain, String password) throws IOException {
-        return runWithRetry(() -> {
+        return functionWithRetry(() -> {
             try {
                 Session session = Session.getDefaultInstance(new Properties());
                 Store store = session.getStore("imap");
@@ -120,7 +121,7 @@ public class EmailClientAdapter {
     }
 
     public static List<String> getAllMessages(int imapPort, String mailbox, String domain, String password) throws IOException {
-        return runWithRetry(() -> {
+        return functionWithRetry(() -> {
             try {
                 Session session = Session.getDefaultInstance(new Properties());
                 Store store = session.getStore("imap");
@@ -156,7 +157,7 @@ public class EmailClientAdapter {
     }
 
     public static int markMessagesSeen(int imapPort, String mailbox, String domain, String password) throws IOException {
-        return runWithRetry(() -> {
+        return functionWithRetry(() -> {
             try {
                 Session session = Session.getDefaultInstance(new Properties());
                 Store store = session.getStore("imap");
@@ -178,29 +179,5 @@ public class EmailClientAdapter {
                 throw new IOException(e);
             }
         });
-    }
-
-    public static interface RunWithRetry<T> {
-        T run() throws Exception;
-    }
-
-    public static <T> T runWithRetry(RunWithRetry<T> runWithRetry) throws IOException {
-        int i = 0;
-        Exception firstException = null;
-        while (i < 2) {
-            try {
-                return runWithRetry.run();
-            } catch (Exception e) {
-                if (firstException == null) {
-                    firstException = e;
-                }
-            }
-            i++;
-        }
-
-        if (firstException instanceof IOException) {
-            throw (IOException) firstException;
-        }
-        throw new IOException(firstException);
     }
 }

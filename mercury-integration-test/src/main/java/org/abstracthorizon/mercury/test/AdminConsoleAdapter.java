@@ -1,6 +1,8 @@
 package org.abstracthorizon.mercury.test;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -29,9 +31,11 @@ public class AdminConsoleAdapter {
     private int port;
     private String user = "admin";
     private String password = "admin";
+    private MailSuite owner;
 
-    public AdminConsoleAdapter(int port) {
-        this.port = port;
+    public AdminConsoleAdapter(MailSuite owner) {
+        this.owner = owner;
+        this.port = owner.getAdminPort();
     }
 
     public AdminConsoleAdapter withUserAndPassword(String user, String password) {
@@ -112,18 +116,83 @@ public class AdminConsoleAdapter {
     public void addDomain(String domainName, List<String> output) throws IOException {
         URL url = new URL("https://localhost:" + port + "/add_domain?domain=" + domainName);
 
-        collectResult(decorateConnection(url.openConnection()), output);
+        try (WaitForModified propertiesModified = new WaitForModified(owner.getAccountPropertiesFile())) {
+
+            owner.getAccountPropertiesFile();
+            owner.getAccountKeystoreFile();
+            collectResult(decorateConnection(url.openConnection()), output);
+        }
     }
 
     public void addMailbox(String domainName, String mailbox, String password, List<String> output) throws IOException {
         URL url = new URL("https://localhost:" + port + "/add_mailbox?domain=" + domainName + "&mailbox=" + mailbox + "&password=" + password + "&password2="+ password);
 
-        collectResult(decorateConnection(url.openConnection()), output);
+        try (WaitForModified propertiesModified = new WaitForModified(owner.getAccountPropertiesFile());
+                WaitForModified keystoreModified = new WaitForModified(owner.getAccountKeystoreFile())) {
+
+            collectResult(decorateConnection(url.openConnection()), output);
+        }
     }
 
     public void changePassword(String domainName, String mailbox, String oldPassword, String newPassword) throws IOException {
         URL url = new URL("https://localhost:" + port + "/password?mailbox=" + mailbox + "&domain=" + domainName + "&oldpassword=" + oldPassword +  "&password=" + newPassword + "&password2="+ newPassword);
 
-        collectResult(decorateConnection(url.openConnection()), new ArrayList<>());
+        try (WaitForModified keystoreModified = new WaitForModified(owner.getAccountKeystoreFile())) {
+
+            collectResult(decorateConnection(url.openConnection()), new ArrayList<>());
+        }
+    }
+
+    public static class WaitForModified implements Closeable {
+        private File f;
+        private long timestamp;
+        private long timeout;
+
+        public WaitForModified(File f) {
+            this(f, 2000);
+        }
+
+        public WaitForModified(File f, long timeout) {
+            this.f = f;
+            this.timeout = timeout;
+            this.timestamp = f.lastModified();
+            if (this.timestamp % 1000 == 0) {
+                // If FS timestamp resolution is at 1s then need to wait until next second
+                while (this.timestamp + 1000 > System.currentTimeMillis()) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ignore) {}
+                }
+            }
+        }
+
+        public long getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(long timeout) {
+            this.timeout = timeout;
+        }
+
+        public void close() {
+            waitForModified();
+        }
+
+        public void waitForModified() {
+            waitForModified(timeout);
+        }
+
+        public void waitForModified(long timeout) {
+            long now = System.currentTimeMillis();
+            while (System.currentTimeMillis() < now + timeout) {
+                if (f.lastModified() > timestamp) {
+                    return;
+                }
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ignore) {}
+            }
+            throw new AssertionError("File " + f.getAbsolutePath() + " has not changed within " + timeout + "ms");
+        }
     }
 }
