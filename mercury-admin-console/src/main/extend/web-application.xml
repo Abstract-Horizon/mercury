@@ -237,6 +237,7 @@
     </property>
   </bean>
 
+<!--
   <bean name="mercury-admin-console-context" class="org.abstracthorizon.danube.auth.jaas.keystore.KeyStoreModuleService">
     <service />
     <property name="loginContext" value="mercury-admin-console-context"/>
@@ -244,4 +245,5 @@
     <property name="keyStorePassword" value="password1234"/>
     <property name="configuration" ref="javax.security.auth.login"/>
   </bean>
+-->
 </beans>
