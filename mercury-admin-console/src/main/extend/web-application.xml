@@ -17,7 +17,7 @@
   <depends-on>org.abstracthorizon.danube:danube-auth:1.1</depends-on>
   <depends-on>org.abstracthorizon.extend:extend-auth:1.2:sar.xml</depends-on>
   <depends-on>org.abstracthorizon.mercury:mercury-admin-console:2.1</depends-on>
-  <depends-on>:mercury-mail-suite::sar.xml</depends-on>
+  <!-- <depends-on>:mercury-mail-suite::sar.xml</depends-on> -->
 
   <!-- this same context path would be picked from the module's name -->
   <context-path>/</context-path>
