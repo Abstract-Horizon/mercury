@@ -321,7 +321,9 @@ public class MaildirFolderData extends Folder {
                             name = name.substring(1);
                         }
                         name = name.replace('.', '/');
-                        if (p.matcher(name).matches()) {
+                        if (pattern.equals("INBOX") && name.equalsIgnoreCase("INBOX")) {
+                            res.add(name);
+                        } else if (p.matcher(name).matches()) {
                             res.add(name);
                         }
                     }
