@@ -12,6 +12,7 @@
  */
 package org.abstracthorizon.mercury.sync.cachedir;
 
+import static java.util.Arrays.asList;
 import static java.util.Collections.sort;
 
 import java.io.File;
@@ -25,7 +26,6 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -234,13 +234,15 @@ public class MailCachedDir extends AbstractSubdirCachedDir {
     }
 
     private List<File> cachedFiles() {
-        if (cache == null || cacheTimestamp + getParent().getCachePeriod() < System.currentTimeMillis()) {
-            cache = new ArrayList<File>(Arrays.asList(file.listFiles(new FileFilter() {
+        long now = System.currentTimeMillis();
+        if (cache == null || cacheTimestamp + getParent().getCachePeriod() < now) {
+            cache = new ArrayList<File>(asList(file.listFiles(new FileFilter() {
                 @Override
                 public boolean accept(File file) {
                     return !".".equals(file.getName()) && !"..".equals(file.getName());
                 }
             })));
+            cacheTimestamp = now;
         }
         return cache;
     }
