@@ -518,9 +518,22 @@ public class MaildirFolderData extends Folder {
                 throw new MessagingException("Cannot open folder; cannot create del directory; " + getFullName());
             }
         }
+        purgeDelDirFiles();
     }
 
-   // ---------------------------------------------------------------------------------------
+   private void purgeDelDirFiles() {
+       long thirtyDaysAgo = System.currentTimeMillis() - 30L * 24L * 60L * 60L * 1000L;
+       File[] files = getDelDir().listFiles();
+       for (File f : files) {
+           if (!f.getName().startsWith(".") && f.lastModified() < thirtyDaysAgo) {
+               if (!f.delete()) {
+                   // TODO should we complain?
+               }
+           }
+       }
+    }
+
+// ---------------------------------------------------------------------------------------
 
     /**
      * Returns message count. This implementation checks files on the disk - new and cur directories.
