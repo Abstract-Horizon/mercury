@@ -76,16 +76,17 @@ public class UIDMaildirMessage extends MaildirMessage implements UIDMessage {
 
         int i = name.indexOf('.');
         if (i > 0) {
-            int j = name.indexOf('.', i+1);
-            if (name.charAt(i+1) == 'V') {
-                int k = name.indexOf('U', i+1);
+            int j = name.indexOf('.', i + 1);
+            if (name.charAt(i + 1) == 'V') {
+                int k = name.indexOf('U', i + 1);
                 if ((k > 0) && (k < j)) {
                     try {
-                        int folderHash = Integer.parseInt(name.substring(i+2, k));
-                        long uidx = Long.parseLong(name.substring(k+1, j));
-                        if ((getFolder().hashCode() & 511) == folderHash) {
-                            uid = new UID(uidx);
-                        }
+                        int folderHash = Integer.parseInt(name.substring(i + 2, k));
+                        long uidx = Long.parseLong(name.substring(k + 1, j));
+                        uid = new UID(uidx);
+//                        if ((getFolder().hashCode() & 511) == folderHash) {
+//                            uid = new UID(uidx);
+//                        }
                     } catch (NumberFormatException ignore) {
                     }
                 }
@@ -99,13 +100,13 @@ public class UIDMaildirMessage extends MaildirMessage implements UIDMessage {
 
             int j = filename.lastIndexOf(FLAGS_SEPERATOR);
             if (j >= 0) {
-                flags = filename.substring(j+2);
+                flags = filename.substring(j + 2);
             }
 
             this.file = new File(file.getParentFile(), createFileName(flags));
             long oldDate = oldFile.lastModified();
             if (!oldFile.renameTo(this.file)) {
-                throw new MessagingException("Cannot rename "+oldFile.getAbsolutePath()+" to "+this.file.getAbsolutePath());
+                throw new MessagingException("Cannot rename " + oldFile.getAbsolutePath() + " to " + this.file.getAbsolutePath());
             } else {
                 this.file.setLastModified(oldDate);
             }
