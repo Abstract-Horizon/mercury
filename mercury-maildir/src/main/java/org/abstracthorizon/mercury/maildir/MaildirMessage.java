@@ -293,7 +293,7 @@ public class MaildirMessage extends LazyParsingMessage implements FilenameFilter
             File newFile = new File(newDir, fn);
 
             if (!file.renameTo(newFile)) {
-                throw new MessagingException("Cannot move file "+file.getAbsolutePath()+" to "+newFile.getAbsolutePath());
+                throw new MessagingException("Cannot move file " + file.getAbsolutePath() + " to " + newFile.getAbsolutePath());
             }
             file = newFile;
             // initialise();
@@ -374,6 +374,19 @@ public class MaildirMessage extends LazyParsingMessage implements FilenameFilter
                 closeFile();
                 boolean res = file.delete();
                 setExpunged(res);
+                if (res) {
+                    String name = file.getName();
+                    int i = name.indexOf(':');
+                    if (i >= 0) {
+                        name = name.substring(0, i);
+                    }
+                    File delFile = new File(maildirFolder.getDelDir(), name);
+                    try {
+                        if (!delFile.createNewFile()) {
+                            // TODO what now?
+                        }
+                    } catch (IOException ignore) { }
+                }
                 return res;
             } else {
                 setExpunged(true);
@@ -433,7 +446,7 @@ public class MaildirMessage extends LazyParsingMessage implements FilenameFilter
                         newFile = new File(maildirFolder.getNewDir(), baseName);
                         isNew = true;
                     } else if (flgs.length() > 0) {
-                        newFile = new File(maildirFolder.getCurDir(), baseName+infoSeparator+FLAGS_SEPERATOR+flgs);
+                        newFile = new File(maildirFolder.getCurDir(), baseName + infoSeparator + FLAGS_SEPERATOR+flgs);
                         isNew = false;
                     } else {
                         newFile = new File(maildirFolder.getCurDir(), baseName);
@@ -443,7 +456,7 @@ public class MaildirMessage extends LazyParsingMessage implements FilenameFilter
 
                 if (newFile != null) {
                     if (!file.renameTo(newFile)) {
-                        throw new MessagingException("Cannot set flags; oldFile="+file.getAbsolutePath()+", newFile="+newFile);
+                        throw new MessagingException("Cannot set flags; oldFile=" + file.getAbsolutePath() + ", newFile="+newFile);
                     }
                     file = newFile;
                 }
@@ -460,7 +473,7 @@ public class MaildirMessage extends LazyParsingMessage implements FilenameFilter
      */
     public int compareTo(MaildirMessage o) {
         String s1 = baseName;
-        String s2 = ((MaildirMessage)o).getBaseName();
+        String s2 = o.getBaseName();
         return s1.compareTo(s2);
     }
 }
