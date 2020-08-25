@@ -327,6 +327,7 @@ public class MailSuite implements Closeable {
 
             serverCachedDirs = new CachedDirs();
             serverCachedDirs.setRootFile(mercuryDataDir);
+            serverCachedDirs.setCachePeriod(400);
             // cachedDirs.setSpecialFiles("deploy/mercury-data/config/accounts.properties, deploy/mercury-data/config/accounts.keystore");
             // serverCachedDirs.setSpecialFiles("config/accounts.properties, config/accounts.keystore");
 

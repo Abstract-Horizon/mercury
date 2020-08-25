@@ -1,13 +1,15 @@
 package org.abstracthorizon.mercury.test;
 
 import static java.util.Arrays.asList;
+import static org.abstracthorizon.mercury.test.EmailClientAdapter.deleteMessage;
+import static org.abstracthorizon.mercury.test.EmailClientAdapter.getAllMessages;
 import static org.abstracthorizon.mercury.test.EmailClientAdapter.getNewMessagesSubjects;
 import static org.abstracthorizon.mercury.test.EmailClientAdapter.getNewMessagesWithBodies;
 import static org.abstracthorizon.mercury.test.EmailClientAdapter.sendEmail;
 import static org.junit.Assert.assertEquals;
 
 import java.util.HashSet;
-import java.util.List;
+import java.util.Set;
 
 import org.junit.Test;
 
@@ -60,7 +62,9 @@ public class TestThreeServerSyncing {
             AdminConsoleAdapter oneConsoleAdapter = new AdminConsoleAdapter(oneMailSuite);
             oneConsoleAdapter.addMailbox("test.domain", "user", "pass", null);
 
-            sendEmail(oneMailSuite.getSMTPPort(), "Test message", "Message body");
+            sendEmail(oneMailSuite.getSMTPPort(), "Test message one", "Message body one");
+            Thread.sleep(500);
+            sendEmail(oneMailSuite.getSMTPPort(), "Test message two", "Message body two");
 
             Thread.sleep(1500);
 
@@ -69,8 +73,24 @@ public class TestThreeServerSyncing {
             twoMailSuite.getSyncConnectionHandler().syncWith("localhost", threeMailSuite.getSyncPort());
             Thread.sleep(1500);
 
-            List<String> destMessages = getNewMessagesWithBodies(threeMailSuite.getIMAPPort(), "user", "test.domain", "pass");
-            assertEquals(asList("Subject: Test message\n\nMessage body\r\n"), destMessages);
+            Set<String> destMessages = new HashSet<>(getNewMessagesWithBodies(threeMailSuite.getIMAPPort(), "user", "test.domain", "pass"));
+            assertEquals(new HashSet<>(asList("Subject: Test message one\n\nMessage body one\r\n", "Subject: Test message two\n\nMessage body two\r\n")), destMessages);
+
+            getAllMessages(threeMailSuite.getIMAPPort(), "user", "test.domain", "pass");
+            deleteMessage(threeMailSuite.getIMAPPort(), "user", "test.domain", "pass", "Test message two");
+            Thread.sleep(1500);
+            twoMailSuite.getSyncConnectionHandler().syncWith("localhost", threeMailSuite.getSyncPort());
+            Thread.sleep(1500);
+            oneMailSuite.getSyncConnectionHandler().syncWith("localhost", twoMailSuite.getSyncPort());
+            Thread.sleep(1500);
+
+            HashSet<String> expectedOneMessage = new HashSet<>(asList("Subject: Test message one\n\nMessage body one\r\n"));
+
+            destMessages = new HashSet<>(getAllMessages(threeMailSuite.getIMAPPort(), "user", "test.domain", "pass"));
+            assertEquals(expectedOneMessage, destMessages);
+
+            HashSet<String> sourceMessages = new HashSet<>(getAllMessages(oneMailSuite.getIMAPPort(), "user", "test.domain", "pass"));
+            assertEquals(expectedOneMessage, sourceMessages);
         }
     }
 
