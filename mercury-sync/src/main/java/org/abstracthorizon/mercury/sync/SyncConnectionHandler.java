@@ -63,6 +63,24 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
     private String password;
 
+    private List<String> peerHosts = new ArrayList<>();
+
+    public List<String> getPeerHosts() {
+        return peerHosts;
+    }
+
+    public void setPeerHosts(List<String> peerHosts) {
+        this.peerHosts = peerHosts;
+    }
+
+    public String getPeerHostsList() {
+        return String.join(",", getPeerHosts());
+    }
+
+    public void setPeerHostsList(String peerHosts) {
+        setPeerHosts(asList(peerHosts.split(",")));
+    }
+
     /**
      * This method creates {@link SMTPSession}, sends initial response and sets state of session to {@link SMTPSession#STATE_CONNECTED}
      *
@@ -112,6 +130,16 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         boolean persistConnection = super.postProcessing(connection);
         SyncSession syncConnection = connection.adapt(SyncSession.class);
         return persistConnection && !syncConnection.isDropConnection();
+    }
+
+    public void syncAll() {
+        for (String hostAndPort : getPeerHosts()) {
+            try {
+                syncWith(hostAndPort);
+            } catch (Exception e) {
+                logger.error("Failed to synchronise with " + hostAndPort, e);
+            }
+        }
     }
 
     public void syncWith(String hostAndPort) throws IOException {
