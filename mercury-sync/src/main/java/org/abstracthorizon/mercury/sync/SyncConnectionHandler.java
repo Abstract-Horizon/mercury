@@ -351,7 +351,10 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
             String fullPath = remote.getPath() + "/" + filename;
 
             RemoteFile remoteFile = syncClient.exists(fullPath);
-            if (remoteFile != null && remoteFile.lastModified() < file.lastModified()) {
+            if (remoteFile == null
+                    || remoteFile.lastModified() < file.lastModified()
+                    || (remoteFile.lastModified() == file.lastModified() && remoteFile.length() != file.length())) {
+
                 syncClient.upload(fullPath, file);
                 statistics.addUpload();
             }
@@ -511,14 +514,17 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         CachedDir remoteDel = remote.getSubdir("del");
 
         if (localModifiedFiles.length > 0) {
-            for (File localFile : localModifiedFiles) {
+            for (File file : localModifiedFiles) {
 
-                String filename = localFile.getName();
+                String filename = file.getName();
 
-                String fullPath = remote.getPath() + "/" + filename;
-                RemoteFile remoteFile = syncClient.exists(fullPath);
-                if (remoteFile != null && remoteFile.lastModified() < localFile.lastModified()) {
-                    syncClient.delete(remoteDel.getPath() + "/" + localFile.getName(), localFile.lastModified());
+                RemoteFile remoteFile = syncClient.exists(remote.getPath() + "/cur/" + filename);
+                // This shouldn't be necessary
+                // if (remoteFile == null) {
+                //     remoteFile = syncClient.exists(remote.getPath() + "/new/" + filename);
+                // }
+                if (remoteFile == null || remoteFile.lastModified() < file.lastModified()) {
+                    syncClient.delete(remoteDel.getPath() + "/" + file.getName(), file.lastModified());
                     statistics.addPushedDel();
                 }
             }

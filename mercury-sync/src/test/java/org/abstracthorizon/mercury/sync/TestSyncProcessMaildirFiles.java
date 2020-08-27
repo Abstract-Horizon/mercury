@@ -13,6 +13,7 @@
 package org.abstracthorizon.mercury.sync;
 
 import static org.abstracthorizon.mercury.sync.MercuryDirSetup.compareRecursively;
+import static org.abstracthorizon.mercury.sync.MercuryDirSetup.copyRecursively;
 import static org.abstracthorizon.mercury.sync.MercuryDirSetup.createFile;
 import static org.abstracthorizon.mercury.sync.MercuryDirSetup.testForDeletedAndDuplicates;
 import static org.junit.Assert.assertTrue;
@@ -48,6 +49,8 @@ public class TestSyncProcessMaildirFiles {
         localCachedDirs.setRootFile(setup.getLocalDeploy());
 
         createTypical(setup);
+        copyRecursively(setup.getServerDirSetup().getRoot(), setup.getLocalDirSetup().getRoot());
+
 
         syncConnectionHandler = createSyncConnectionHandler(localCachedDirs);
         syncConnectionHandler.setLastSyncedTime(lastSyncedTime);

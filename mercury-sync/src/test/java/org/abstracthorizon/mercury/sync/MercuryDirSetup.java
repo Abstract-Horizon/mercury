@@ -89,7 +89,7 @@ public class MercuryDirSetup {
     }
 
     public MercuryDirSetup duplicate(String newName) throws IOException {
-        File duplicateTempDir = File.createTempFile("mercury-" + name, ".test-dir");
+        File duplicateTempDir = File.createTempFile("mercury-" + newName, ".test-dir");
         if (!duplicateTempDir.delete()) {
             throw new IOException("Cannot delete temp file " + duplicateTempDir.getAbsolutePath());
         }
