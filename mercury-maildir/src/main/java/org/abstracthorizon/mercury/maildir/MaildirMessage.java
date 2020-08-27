@@ -83,10 +83,14 @@ public class MaildirMessage extends LazyParsingMessage implements FilenameFilter
     protected static String host;
 
     static {
-        try {
-            host = InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            host = "localhost";
+        if (System.getenv().containsKey("MAILDIR_HOSTNAME")) {
+            host = System.getenv().get("MAILDIR_HOSTNAME");
+        } else {
+            try {
+                host = InetAddress.getLocalHost().getHostName();
+            } catch (UnknownHostException e) {
+                host = "localhost";
+            }
         }
     }
 
