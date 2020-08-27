@@ -466,7 +466,7 @@ public class SyncClient {
                 String response = scanner.next();
 
                 if ("FILE".equals(response)) {
-                    long lastModified = scanner.nextLong();
+                    long lastModified = scanner.nextLong() * 1000;
                     int size = scanner.nextInt();
                     String fileFullPathAndFilename = scanner.next();
 
