@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 public class CachedDirs {
 
     private CachedDir root;
-    private long cachePeriod = 120000; // 2 minutes
+    private long cachePeriod = 10000; // 2 seconds
     private long lastScanned = 0;
 
     public CachedDirs() {
