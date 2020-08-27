@@ -138,7 +138,7 @@ public class DeleteCommand extends SyncCommand {
         }
     }
 
-    public static void deleteFile(CachedDir delDir, CachedDir newDir, CachedDir curDir, String filename, long lastModified) throws IOException {
+    public static boolean deleteFile(CachedDir delDir, CachedDir newDir, CachedDir curDir, String filename, long lastModified) throws IOException {
         String baseFilename = filename.split(":")[0];
 
         asList(newDir.listFilesAfter(0))
@@ -156,9 +156,11 @@ public class DeleteCommand extends SyncCommand {
             delFile.createNewFile();
             delFile.setLastModified(lastModified);
             delDir.addFile(delFile);
+            return true;
         } else {
             delFile.setLastModified(lastModified);
         }
+        return false;
     }
 
     // TODO put this deleting thing somewhere else (so it isnt invoced statically by SyncConnectionHandler for local deleting)

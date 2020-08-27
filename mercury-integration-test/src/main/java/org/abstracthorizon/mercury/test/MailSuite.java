@@ -336,8 +336,8 @@ public class MailSuite implements Closeable {
 
             syncConnectionHandler = new SyncConnectionHandler();
             syncConnectionHandler.setCachedDirs(serverCachedDirs);
-            syncConnectionHandler.setKeystoreURL(syncClientKeyStoreFile.toURI().toURL());
-            syncConnectionHandler.setPassword(syncKeystorePassword);
+            syncConnectionHandler.setKeyStoreURL(syncClientKeyStoreFile.toURI().toURL());
+            syncConnectionHandler.setKeyStorePassword(syncKeystorePassword);
 
             syncService.setConnectionHandler(syncConnectionHandler);
 

@@ -61,7 +61,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
     private URL keystoreURL;
 
-    private String password;
+    private String keystorePassword;
 
     private List<String> peerHosts = new ArrayList<>();
 
@@ -166,7 +166,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         syncClient.setSSL(true);
 
         syncClient.setKeyStoreURL(keystoreURL);
-        syncClient.setKeyStorePassword(password);
+        syncClient.setKeyStorePassword(keystorePassword);
 
         long thisSyncedTime = System.currentTimeMillis();
         syncClient.connect();
@@ -174,13 +174,16 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
         CachedDir localRoot = getCachedDirs().getRoot();
         CachedDir remoteRoot = remoteCachedDirs.getRoot();
-        processCachedDir(syncClient, localRoot, remoteRoot);
 
-        lastSynced = thisSyncedTime;
-        logger.info("Syncing with " + address + ":" + port + " lasted " + (System.currentTimeMillis() - now) + "ms");
+        SyncStatistics statistics = new SyncStatistics();
+
+        processCachedDir(syncClient, localRoot, remoteRoot, statistics);
+
+        lastSynced = thisSyncedTime - getCachedDirs().getCachePeriod() * 2; // This is to ensure we never miss anything
+        logger.info("Syncing with " + address + ":" + port + " lasted " + (System.currentTimeMillis() - now) + "ms, stats: " + statistics.toString());
     }
 
-    private void processCachedDir(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
+    private void processCachedDir(SyncClient syncClient, CachedDir local, CachedDir remote, SyncStatistics statistics) throws IOException {
 
         Map<String, CachedDir> localSubdirs = local.subdirs().stream().collect(toMap(CachedDir::getName, identity()));
         Map<String, CachedDir> remoteSubdirs = remote.subdirs().stream().collect(toMap(CachedDir::getName, identity()));
@@ -228,30 +231,17 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         // This code here ^^^ treats removed subdirs as existing // bad - finding common subdirs should ignore removed cached dir
 
         if (commonLocalSubdirs.containsKey("del")) {
-            syncLocalDeletedToRemote(syncClient, local, remote);
-            syncRemoteDeletedToLocal(syncClient, local, remote);
+            syncLocalDeletedToRemote(syncClient, local, remote, statistics);
+            syncRemoteDeletedToLocal(syncClient, local, remote, statistics);
         }
         if (commonLocalSubdirs.containsKey("new") && commonLocalSubdirs.containsKey("cur")) {
-//            {
-//                CachedDir localCachedDir = commonLocalSubdirs.get("new");
-//                CachedDir remoteCachedDir = commonRemoteSubdirs.get("new");
-//                // downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
-//                uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
-//            }
-//            {
-//                CachedDir localCachedDir = commonLocalSubdirs.get("cur");
-//                CachedDir remoteCachedDir = commonRemoteSubdirs.get("cur");
-//                // downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
-//                uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
-//            }
-
-            syncNewAndCurFiles(syncClient, local, remote);
+            syncNewAndCurFiles(syncClient, local, remote, statistics);
         }
         if (commonLocalSubdirs.containsKey("config")) {
             CachedDir localCachedDir = localSubdirs.get("config");
             CachedDir remoteCachedDir = remoteSubdirs.get("config");
-            downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
-            uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir);
+            downloadModifiedFiles(syncClient, localCachedDir, remoteCachedDir, statistics);
+            uploadModifiedFiles(syncClient, localCachedDir, remoteCachedDir, statistics);
         }
 
         commonLocalSubdirs.remove("del");
@@ -265,7 +255,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
         for (CachedDir subLocalCachedDir : commonLocalSubdirs.values()) {
             CachedDir subRemoteCachedDir = commonRemoteSubdirs.get(subLocalCachedDir.getName());
-            processCachedDir(syncClient, subLocalCachedDir, subRemoteCachedDir);
+            processCachedDir(syncClient, subLocalCachedDir, subRemoteCachedDir,statistics);
         }
     }
 
@@ -334,23 +324,24 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         return newSubDir;
     }
 
-    private void downloadModifiedFiles(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
+    private void downloadModifiedFiles(SyncClient syncClient, CachedDir local, CachedDir remote, SyncStatistics statistics) throws IOException {
         List<RemoteFile> remoteModifiedFiles = syncClient.list(lastSynced, remote);
 
         for (RemoteFile file : remoteModifiedFiles) {
             String fullPath = remote.getPath() + "/" + file.getName();
             File f = local.getFile(file.getName());
 
-            if (!f.exists() || f.lastModified() <= file.lastModified()) {
+            if (!f.exists() || f.lastModified() < file.lastModified()) {
                 syncClient.download(fullPath, f);
                 long time = file.lastModified();
                 f.setLastModified(time);
+                statistics.addDownload();
             }
         }
         local.setLastModified(remote.getLastModified());
     }
 
-    private void uploadModifiedFiles(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
+    private void uploadModifiedFiles(SyncClient syncClient, CachedDir local, CachedDir remote, SyncStatistics statistics) throws IOException {
         File[] listFilesAfter = local.listFilesAfter(lastSynced);
 
         for (File file : listFilesAfter) {
@@ -358,15 +349,16 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
             String filename = file.getName();
 
             String fullPath = remote.getPath() + "/" + filename;
-            // TODO what about checking peer file's timestamp!!!
+
             RemoteFile remoteFile = syncClient.exists(fullPath);
             if (remoteFile != null && remoteFile.lastModified() < file.lastModified()) {
                 syncClient.upload(fullPath, file);
+                statistics.addUpload();
             }
         }
     }
 
-    private void syncNewAndCurFiles(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
+    private void syncNewAndCurFiles(SyncClient syncClient, CachedDir local, CachedDir remote, SyncStatistics statistics) throws IOException {
         CachedDir remoteNew = remote.getSubdir("new");
         CachedDir remoteCur = remote.getSubdir("cur");
         CachedDir localNew = local.getSubdir("new");
@@ -409,6 +401,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
                 syncClient.download(remoteFile.getPath() + "/" + remoteFile.getName(), localFile);
                 localFile.setLastModified(remoteFile.lastModified());
+                statistics.addDownload();
             } else if (differentNames(localFile, remoteFile)) {
                 CachedDir localDir = remoteFile.getPath().endsWith("new") ? localNew : localCur;
 
@@ -418,8 +411,11 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                     // TODO do we need to fix (remove) file from localDir
                 }
                 newLocalFile.setLastModified(remoteFile.lastModified());
+                statistics.addLocalTouch();
             } else {
+                // This is supposed to be NO-OP - same length and same name!
                 localFile.setLastModified(remoteFile.lastModified());
+                // statistics.addLocalTouch();
             }
         }
 
@@ -431,10 +427,14 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
             RemoteFile remoteFile = syncClient.exists(localDir.getPath() + "/" + baseFilename);
             if (remoteFile == null || remoteFile.length() != localFile.length()) {
                 syncClient.upload(localDir.getPath() + "/" + localFile.getName(), localFile);
+                statistics.addUpload();
             } else if (differentNames(localFile, remoteFile)) {
                 syncClient.move(remoteFile.getPath() + "/" + remoteFile.getName(), localDir.getPath() + "/" + localFile.getName(), localFile.lastModified());
+                statistics.addRemoteTouch();
             } else {
+                // This is supposed to be NO-OP - same name and same length?
                 syncClient.touch(remoteFile.getPath(), remoteFile.getName(), localFile.lastModified());
+                // statistics.remoteTouchRename += 1;
             }
         }
 
@@ -446,10 +446,13 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                 CachedDir localDir = localFile.getParent().endsWith("new") ? localNew : localCur;
                 if (remoteFile.length() != localFile.length()) {
                     syncClient.upload(localDir.getPath() + "/" + localFile.getName(), localFile);
+                    statistics.addUpload();
                 } else if (differentNames(localFile, remoteFile)) {
                     syncClient.move(remoteFile.getPath() + "/" + remoteFile.getName(), localDir.getPath() + "/" + localFile.getName(), localFile.lastModified());
+                    statistics.addRemoteTouch();
                 } else {
                     syncClient.touch(remoteFile.getPath(), remoteFile.getName(), localFile.lastModified());
+                    statistics.addRemoteTouch();
                 }
             } else if (remoteFile.lastModified() > localFile.lastModified()) {
                 if (localFile.length() != remoteFile.length()) {
@@ -458,6 +461,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
                     syncClient.download(remoteFile.getPath() + "/" + remoteFile.getName(), localFile);
                     localFile.setLastModified(remoteFile.lastModified());
+                    statistics.addDownload();
                 } else if (differentNames(localFile, remoteFile)) {
                     CachedDir localDir = remoteFile.getPath().endsWith("new") ? localNew : localCur;
 
@@ -467,8 +471,10 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                         // TODO do we need to fix (remove) file from localDir
                     }
                     newLocalFile.setLastModified(remoteFile.lastModified());
+                    statistics.addLocalTouch();
                 } else {
                     localFile.setLastModified(remoteFile.lastModified());
+                    statistics.addLocalTouch();
                 }
             } else {
                 if (differentNames(localFile, remoteFile)) {
@@ -476,6 +482,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                     // For now - we favour ourselves
                     CachedDir localDir = localFile.getParent().endsWith("new") ? localNew : localCur;
                     syncClient.upload(localDir.getPath() + "/" + localFile.getName(), localFile);
+                    statistics.addUpload();
                 }
             }
         }
@@ -499,23 +506,33 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         return null;
     }
 
-    private void syncLocalDeletedToRemote(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
+    private void syncLocalDeletedToRemote(SyncClient syncClient, CachedDir local, CachedDir remote, SyncStatistics statistics) throws IOException {
         File[] localModifiedFiles = local.getSubdir("del").listFilesAfter(lastSynced);
         CachedDir remoteDel = remote.getSubdir("del");
 
         if (localModifiedFiles.length > 0) {
             for (File localFile : localModifiedFiles) {
-                syncClient.delete(remoteDel.getPath() + "/" + localFile.getName(), localFile.lastModified());
+
+                String filename = localFile.getName();
+
+                String fullPath = remote.getPath() + "/" + filename;
+                RemoteFile remoteFile = syncClient.exists(fullPath);
+                if (remoteFile != null && remoteFile.lastModified() < localFile.lastModified()) {
+                    syncClient.delete(remoteDel.getPath() + "/" + localFile.getName(), localFile.lastModified());
+                    statistics.addPushedDel();
+                }
             }
         }
     }
 
-    private void syncRemoteDeletedToLocal(SyncClient syncClient, CachedDir local, CachedDir remote) throws IOException {
+    private void syncRemoteDeletedToLocal(SyncClient syncClient, CachedDir local, CachedDir remote, SyncStatistics statistics) throws IOException {
         List<RemoteFile> remoteDelFiles = syncClient.list(lastSynced, remote.getSubdir("del"));
 
         if (remoteDelFiles.size() > 0) {
             for (RemoteFile remoteFile : remoteDelFiles) {
-                deleteFile(local.getSubdir("del"), local.getSubdir("new"), local.getSubdir("cur"), remoteFile.getName(), remoteFile.lastModified());
+                if (deleteFile(local.getSubdir("del"), local.getSubdir("new"), local.getSubdir("cur"), remoteFile.getName(), remoteFile.lastModified())) {
+                    statistics.addDownDel();
+                }
             }
         }
     }
@@ -532,20 +549,39 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         this.cachedDirs = cachedDirs;
     }
 
-    public URL getKeystoreURL() {
+    public URL getKeyStoreURL() {
         return keystoreURL;
     }
 
-    public void setKeystoreURL(URL keystoreURL) {
+    public void setKeyStoreURL(URL keystoreURL) {
         this.keystoreURL = keystoreURL;
     }
 
-    public String getPassword() {
-        return password;
+    /**
+     * Sets keystore file
+     * @param filename keystore file
+     */
+    public void setKeyStoreFile(File file) throws IOException {
+        this.keystoreURL = file.toURI().toURL();
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    /**
+     * Returns keystore file
+     * @return keystore file
+     */
+    public File getKeyStoreFile() {
+        if (keystoreURL.getProtocol().equals("file")) {
+            return new File(keystoreURL.getFile());
+        }
+        return null;
+    }
+
+    public String getKeyStorePassword() {
+        return keystorePassword;
+    }
+
+    public void setKeyStorePassword(String keystorePassword) {
+        this.keystorePassword = keystorePassword;
     }
 
     public void setLastSyncedTime(long lastSynced) {
@@ -554,5 +590,32 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
     public long getLastSyncedTime() {
         return lastSynced;
+    }
+
+    public static class SyncStatistics {
+        private int downloadedFiles = 0;
+        private int uploadedFiles = 0;
+        private int pushedDeletes = 0;
+        private int downloadedDeletes;
+        private int localTouchRename = 0;
+        private int remoteTouchRename = 0;
+
+        public void addDownload() { downloadedFiles += 1; }
+
+        public void addUpload() { uploadedFiles += 1; }
+
+        public void addPushedDel() { pushedDeletes += 1; }
+
+        public void addDownDel() { downloadedDeletes += 1; }
+
+        public void addLocalTouch() { localTouchRename += 1; }
+
+        public void addRemoteTouch() { remoteTouchRename += 1; }
+
+        public String toString() {
+            return "< " + downloadedFiles + ", > " + uploadedFiles
+                    + ", <! " + downloadedDeletes + ", >! " + pushedDeletes
+                    + ", <@ " + localTouchRename + ", >@ " + remoteTouchRename;
+        }
     }
 }

@@ -45,8 +45,8 @@ public class SetupSyncForTesting {
 
             SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
             service.setConnectionHandler(syncConnectionHandler);
-            syncConnectionHandler.setKeystoreURL(SetupSyncForTesting.class.getResource("/localhost.keystore")); // TODO!!!
-            syncConnectionHandler.setPassword("password1234");
+            syncConnectionHandler.setKeyStoreURL(SetupSyncForTesting.class.getResource("/localhost.keystore")); // TODO!!!
+            syncConnectionHandler.setKeyStorePassword("password1234");
 
             SyncCommandFactory syncCommandFactory = new SyncCommandFactory();
             syncConnectionHandler.setConnectionHandler(syncCommandFactory);

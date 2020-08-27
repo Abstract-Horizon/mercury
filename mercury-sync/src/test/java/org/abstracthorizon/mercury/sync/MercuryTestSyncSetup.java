@@ -115,8 +115,8 @@ public class MercuryTestSyncSetup {
 
         syncConnectionHandler = new SyncConnectionHandler();
         syncConnectionHandler.setCachedDirs(serverCachedDirs);
-        syncConnectionHandler.setKeystoreURL(getClass().getResource("/localhost.keystore")); // TODO!!!
-        syncConnectionHandler.setPassword("password1234");
+        syncConnectionHandler.setKeyStoreURL(getClass().getResource("/localhost.keystore")); // TODO!!!
+        syncConnectionHandler.setKeyStorePassword("password1234");
 
         service.setConnectionHandler(syncConnectionHandler);
 

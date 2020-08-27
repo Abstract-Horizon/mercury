@@ -569,8 +569,8 @@ public class TestSyncProcessMaildirFiles {
     private SyncConnectionHandler createSyncConnectionHandler(CachedDirs localCachedDirs) {
         SyncConnectionHandler syncConnectionHandler = new SyncConnectionHandler();
         syncConnectionHandler.setCachedDirs(localCachedDirs);
-        syncConnectionHandler.setKeystoreURL(getClass().getResource("/localhost.keystore"));
-        syncConnectionHandler.setPassword("password1234");
+        syncConnectionHandler.setKeyStoreURL(getClass().getResource("/localhost.keystore"));
+        syncConnectionHandler.setKeyStorePassword("password1234");
         return syncConnectionHandler;
     }
 
