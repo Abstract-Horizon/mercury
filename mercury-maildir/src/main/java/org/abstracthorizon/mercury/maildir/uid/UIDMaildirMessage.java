@@ -81,7 +81,7 @@ public class UIDMaildirMessage extends MaildirMessage implements UIDMessage {
                 int k = name.indexOf('U', i + 1);
                 if ((k > 0) && (k < j)) {
                     try {
-                        int folderHash = Integer.parseInt(name.substring(i + 2, k));
+                        /*int folderHash = */Integer.parseInt(name.substring(i + 2, k));
                         long uidx = Long.parseLong(name.substring(k + 1, j));
                         uid = new UID(uidx);
 //                        if ((getFolder().hashCode() & 511) == folderHash) {

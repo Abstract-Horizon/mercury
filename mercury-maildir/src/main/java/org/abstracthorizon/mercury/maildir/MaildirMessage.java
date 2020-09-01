@@ -405,6 +405,8 @@ public class MaildirMessage extends LazyParsingMessage implements FilenameFilter
      * @throws MessagingException
      */
     public Date getReceivedDate() throws MessagingException {
+        // TODO this shouldn't be the case!!!
+        // We should use first line of raw message ('Received: from mailb-ca.linkedin.com ([108.184.66.115]) by localserver for daniel; Tue, 01 Sep 2020 10:28:03 +0100')
         if (!file.exists()) {
             synchronise();
         }
@@ -462,6 +464,8 @@ public class MaildirMessage extends LazyParsingMessage implements FilenameFilter
                     if (!file.renameTo(newFile)) {
                         throw new MessagingException("Cannot set flags; oldFile=" + file.getAbsolutePath() + ", newFile="+newFile);
                     }
+                    // TODO this spoils 'received date' but fixes problem with synchronised messages.
+                    newFile.setLastModified(System.currentTimeMillis());
                     file = newFile;
                 }
             }
