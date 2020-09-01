@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 import org.abstracthorizon.danube.connection.Connection;
 import org.abstracthorizon.danube.service.server.ServerConnectionHandler;
 import org.abstracthorizon.danube.support.RuntimeIOException;
+import org.abstracthorizon.extend.Extend;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDir;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
 import org.abstracthorizon.mercury.sync.cachedir.RemovedCachedDir;
@@ -156,31 +157,34 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
     }
 
     public void syncWith(String address, int port) throws IOException {
-        logger.debug("Syncing with " + address + ":" + port);
-        long now = System.currentTimeMillis();
-        cachedDirs.refresh();
-
-        SyncClient syncClient = new SyncClient();
-        syncClient.setPort(port);
-        syncClient.setAddress(address);
-        syncClient.setSSL(true);
-
-        syncClient.setKeyStoreURL(keystoreURL);
-        syncClient.setKeyStorePassword(keystorePassword);
-
-        long thisSyncedTime = System.currentTimeMillis();
-        syncClient.connect();
-        CachedDirs remoteCachedDirs = syncClient.dir();
-
-        CachedDir localRoot = getCachedDirs().getRoot();
-        CachedDir remoteRoot = remoteCachedDirs.getRoot();
-
         SyncStatistics statistics = new SyncStatistics();
 
-        processCachedDir(syncClient, localRoot, remoteRoot, statistics);
+        logger.debug("Syncing with " + address + ":" + port);
+        try {
+            cachedDirs.refresh();
 
-        lastSynced = thisSyncedTime - getCachedDirs().getCachePeriod() * 2; // This is to ensure we never miss anything
-        logger.info("Syncing with " + address + ":" + port + " lasted " + (System.currentTimeMillis() - now) + "ms, stats: " + statistics.toString());
+            SyncClient syncClient = new SyncClient();
+            syncClient.setPort(port);
+            syncClient.setAddress(address);
+            syncClient.setSSL(true);
+
+            syncClient.setKeyStoreURL(keystoreURL);
+            syncClient.setKeyStorePassword(keystorePassword);
+
+            long thisSyncedTime = System.currentTimeMillis();
+            syncClient.connect();
+            CachedDirs remoteCachedDirs = syncClient.dir();
+
+            CachedDir localRoot = getCachedDirs().getRoot();
+            CachedDir remoteRoot = remoteCachedDirs.getRoot();
+
+
+            processCachedDir(syncClient, localRoot, remoteRoot, statistics);
+
+            lastSynced = thisSyncedTime - getCachedDirs().getCachePeriod() * 2; // This is to ensure we never miss anything
+        } finally {
+            logger.info("Syncing with " + address + ":" + port + " " + statistics.toString());
+        }
     }
 
     private void processCachedDir(SyncClient syncClient, CachedDir local, CachedDir remote, SyncStatistics statistics) throws IOException {
@@ -367,19 +371,23 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         CachedDir localNew = local.getSubdir("new");
         CachedDir localCur = local.getSubdir("cur");
 
-        List<RemoteFile> modifiedRemoteFiles = new ArrayList<>();
+        Map<String, RemoteFile> remoteModifications = syncClient.list(lastSynced, remoteCur).stream().collect(toMap(rf -> baseFilename(rf.getName()), rf -> rf));
 
-        modifiedRemoteFiles.addAll(syncClient.list(lastSynced, remoteNew));
-        modifiedRemoteFiles.addAll(syncClient.list(lastSynced, remoteCur));
+        List<RemoteFile> remoteNewFiles = syncClient.list(lastSynced, remoteNew);
+        for (RemoteFile remoteFile : remoteNewFiles) {
+            String remoteBaseName = baseFilename(remoteFile.getName());
+            if (!remoteModifications.containsKey(remoteBaseName)) {
+                remoteModifications.put(remoteBaseName, remoteFile);
+            }
+        }
 
-        Map<String, RemoteFile> remoteModifications = modifiedRemoteFiles.stream().collect(toMap(rf -> baseFilename(rf.getName()), rf -> rf));
-
-        List<File> modifiedLocalFiles = new ArrayList<>();
-
-        modifiedLocalFiles.addAll(asList(localNew.listFilesAfter(lastSynced)));
-        modifiedLocalFiles.addAll(asList(localCur.listFilesAfter(lastSynced)));
-
-        Map<String, File> localModifications = modifiedLocalFiles.stream().collect(toMap(f -> baseFilename(f.getName()), f -> f));
+        Map<String, File> localModifications = asList(localCur.listFilesAfter(lastSynced)).stream().collect(toMap(f -> baseFilename(f.getName()), f -> f));
+        for (File localFile : asList(localNew.listFilesAfter(lastSynced))) {
+            String localBaseName = baseFilename(localFile.getName());
+            if (!localModifications.containsKey(localBaseName)) {
+                localModifications.put(localBaseName, localFile);
+            }
+        }
 
         Set<String> commonBaseFilenames = new HashSet<>(remoteModifications.keySet());
         commonBaseFilenames.retainAll(localModifications.keySet());
@@ -393,6 +401,8 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
             localCommon.put(commonBaseFilename, localModifications.get(commonBaseFilename));
             localModifications.remove(commonBaseFilename);
         }
+
+        int numberOfProcessedFiles = 0;
 
         for (Map.Entry<String, RemoteFile> entry : remoteModifications.entrySet()) {
             String baseFilename = entry.getKey();
@@ -420,6 +430,12 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                 localFile.setLastModified(remoteFile.lastModified());
                 // statistics.addLocalTouch();
             }
+            numberOfProcessedFiles++;
+            if (numberOfProcessedFiles % 1000 == 0) {
+                if (statistics.isTimeToDisplay(60000)) {
+                    logger.info("Processing sync, so far " + statistics);
+                }
+            }
         }
 
         for (Map.Entry<String, File> entry : localModifications.entrySet()) {
@@ -438,6 +454,12 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                 // This is supposed to be NO-OP - same name and same length?
                 syncClient.touch(remoteFile.getPath(), remoteFile.getName(), localFile.lastModified());
                 // statistics.remoteTouchRename += 1;
+            }
+            numberOfProcessedFiles++;
+            if (numberOfProcessedFiles % 1000 == 0) {
+                if (statistics.isTimeToDisplay(60000)) {
+                    logger.info("Processing sync, so far " + statistics);
+                }
             }
         }
 
@@ -486,6 +508,12 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
                     CachedDir localDir = localFile.getParent().endsWith("new") ? localNew : localCur;
                     syncClient.upload(localDir.getPath() + "/" + localFile.getName(), localFile);
                     statistics.addUpload();
+                }
+            }
+            numberOfProcessedFiles++;
+            if (numberOfProcessedFiles % 1000 == 0) {
+                if (statistics.isTimeToDisplay(60000)) {
+                    logger.info("Processing sync, so far " + statistics);
                 }
             }
         }
@@ -599,6 +627,9 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
     }
 
     public static class SyncStatistics {
+        private long startedTime = System.currentTimeMillis();
+        private long lastDisplayed = startedTime;
+
         private int downloadedFiles = 0;
         private int uploadedFiles = 0;
         private int pushedDeletes = 0;
@@ -618,8 +649,16 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
 
         public void addRemoteTouch() { remoteTouchRename += 1; }
 
+        public boolean isTimeToDisplay(long timeout) {
+            return lastDisplayed + timeout < System.currentTimeMillis();
+        }
+
         public String toString() {
-            return "< " + downloadedFiles + ", > " + uploadedFiles
+            lastDisplayed = System.currentTimeMillis();
+            long lasted = lastDisplayed - startedTime;
+
+            return "lasted " + lasted + "ms, stats: "
+                    + "< " + downloadedFiles + ", > " + uploadedFiles
                     + ", <! " + downloadedDeletes + ", >! " + pushedDeletes
                     + ", <@ " + localTouchRename + ", >@ " + remoteTouchRename;
         }
