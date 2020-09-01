@@ -20,8 +20,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.regex.Pattern;
 
@@ -767,13 +770,15 @@ public class MaildirFolderData extends Folder {
             long time = System.currentTimeMillis();
             if ((time - lastAccess) > delay) {
                 int msgno = 1;
-                HashMap<String, MaildirMessage> expunged = (HashMap<String, MaildirMessage>)data.files.clone();
+                Set<String> scannedOldFiles = new HashSet<>();
+                Map<String, MaildirMessage> expunged = (HashMap<String, MaildirMessage>)data.files.clone();
                 ArrayList<MaildirMessage> newMessages = new ArrayList<MaildirMessage>();
                 File[] oldFiles = getCurDir().listFiles();
                 File[] newFiles = getNewDir().listFiles();
                 if (oldFiles != null) {
                     for (int i = 0; i < oldFiles.length; i++) {
                         String baseName = MaildirMessage.baseNameFromFile(oldFiles[i]);
+                        scannedOldFiles.add(baseName);
                         MaildirMessage message = data.files.get(baseName);
                         if (message == null) {
                             // new file
@@ -792,18 +797,25 @@ public class MaildirFolderData extends Folder {
                 if (newFiles != null) {
                     for (int i = 0; i < newFiles.length; i++) {
                         String baseName = MaildirMessage.baseNameFromFile(newFiles[i]);
-                        MaildirMessage message = data.files.get(baseName);
-                        if (message == null) {
-                            // new file
-                            message = createExistingMaildirMessage(newFiles[i], msgno);
-                            msgno++;
-                            newMessages.add(message);
-                            if (data != null) {
-                                data.files.put(message.getBaseName(), message);
+                        if (scannedOldFiles.contains(baseName)) {
+                            // Already exists as old file
+                            if (!newFiles[i].delete()) {
+                                // TODO what to do if we cannot delete duplicate file...
                             }
                         } else {
-                            // we still have that file
-                            expunged.remove(baseName);
+                            MaildirMessage message = data.files.get(baseName);
+                            if (message == null) {
+                                // new file
+                                message = createExistingMaildirMessage(newFiles[i], msgno);
+                                msgno++;
+                                newMessages.add(message);
+                                if (data != null) {
+                                    data.files.put(message.getBaseName(), message);
+                                }
+                            } else {
+                                // we still have that file
+                                expunged.remove(baseName);
+                            }
                         }
                     }
                 }
