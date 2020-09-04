@@ -19,9 +19,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import org.abstracthorizon.mercury.common.command.CommandException;
+import org.abstracthorizon.mercury.sync.SyncConnectionHandler;
 import org.abstracthorizon.mercury.sync.SyncResponse;
 import org.abstracthorizon.mercury.sync.SyncResponses;
 import org.abstracthorizon.mercury.sync.SyncSession;
@@ -88,27 +88,34 @@ public class ExistsCommand extends SyncCommand {
 
             if (file == null || !file.exists()) {
                 if (path.endsWith("/new") || path.endsWith("/cur")) {
-                    String baseFilename = filename.split(":")[0];
+                    String baseFilename = SyncConnectionHandler.baseFilename(filename);
 
-                    if (path.endsWith("/new")) {
-                        path = path.substring(0, path.length() - 3) + "cur";
-                    } else { // if (path.endsWith("/cur")) {
-                        path = path.substring(0, path.length() - 3) + "new";
-                    }
-
-                    File[] otherFiles = cachedDirs.forPath(path).listFilesAfter(0);
-
-                    Optional<File> maybeFile = Stream.concat(
-                            asList(selectedDirectory.listFilesAfter(0)).stream(),
-                            asList(otherFiles).stream())
+                    Optional<File> maybeFile = asList(selectedDirectory.listFilesAfter(0)).stream()
                         .filter(f -> f.getName().startsWith(baseFilename))
                         .findFirst();
-
                     if (maybeFile.isPresent()) {
                         file = maybeFile.get();
-                    } else {
-                        connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
-                        return;
+                    }
+
+                    if (file == null || !file.exists()) {
+                        if (path.endsWith("/new")) {
+                            path = path.substring(0, path.length() - 3) + "cur";
+                        } else { // if (path.endsWith("/cur")) {
+                            path = path.substring(0, path.length() - 3) + "new";
+                        }
+
+                        File[] otherFiles = cachedDirs.forPath(path).listFilesAfter(0);
+
+                        maybeFile = asList(otherFiles).stream()
+                            .filter(f -> f.getName().startsWith(baseFilename))
+                            .findFirst();
+
+                        if (maybeFile.isPresent()) {
+                            file = maybeFile.get();
+                        } else {
+                            connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
+                            return;
+                        }
                     }
                 } else {
                     connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);

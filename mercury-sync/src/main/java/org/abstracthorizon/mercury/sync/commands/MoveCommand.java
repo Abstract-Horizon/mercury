@@ -21,6 +21,7 @@ import java.net.SocketTimeoutException;
 import java.util.Scanner;
 
 import org.abstracthorizon.mercury.common.command.CommandException;
+import org.abstracthorizon.mercury.sync.SyncResponse;
 import org.abstracthorizon.mercury.sync.SyncResponses;
 import org.abstracthorizon.mercury.sync.SyncSession;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDir;
@@ -72,13 +73,13 @@ public class MoveCommand extends SyncCommand {
 
                 String[] fromPathElements = fromPath.split("/");
                 if (fromPathElements.length < 2) {
-                    connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
+                    connection.sendResponse(new SyncResponse("ERROR", "File does not exist, no enough path elements; " + fromPath));
                     return;
                 }
 
                 int e = fromPathElements.length - 1;
                 if (!checkIfMaildirPath(fromPathElements[e - 1])) {
-                    connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
+                    connection.sendResponse(new SyncResponse("ERROR", "File does not exist, not a maildir path; " + fromPath + ", " + fromPathElements[e - 1]));
                     return;
                 }
 
@@ -92,19 +93,19 @@ public class MoveCommand extends SyncCommand {
                 File fromFile = fromSelectedDirectory.getFile(fromFilename);
 
                 if (fromFile == null || !fromFile.exists()) {
-                    connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
+                    connection.sendResponse(new SyncResponse("ERROR", "File does not exist; " + fromPath + "/" + fromFilename));
                     return;
                 }
 
                 String[] toPathElements = toPath.split("/");
                 if (toPathElements.length < 2) {
-                    connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
+                    connection.sendResponse(new SyncResponse("ERROR", "File does not exist, no enough path elements for 'to' path; " + toPathElements));
                     return;
                 }
 
                 e = toPathElements.length - 1;
                 if (!checkIfMaildirPath(toPathElements[e - 1])) {
-                    connection.sendResponse(SyncResponses.FILE_DOES_NOT_EXIST);
+                    connection.sendResponse(new SyncResponse("ERROR", "File does not exist, 'to' path not a maildir path; " + toPathElements + ", " + toPathElements[e - 1]));
                     return;
                 }
 

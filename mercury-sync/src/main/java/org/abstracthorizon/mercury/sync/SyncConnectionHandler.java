@@ -35,7 +35,6 @@ import java.util.stream.Stream;
 import org.abstracthorizon.danube.connection.Connection;
 import org.abstracthorizon.danube.service.server.ServerConnectionHandler;
 import org.abstracthorizon.danube.support.RuntimeIOException;
-import org.abstracthorizon.extend.Extend;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDir;
 import org.abstracthorizon.mercury.sync.cachedir.CachedDirs;
 import org.abstracthorizon.mercury.sync.cachedir.RemovedCachedDir;
@@ -571,7 +570,7 @@ public class SyncConnectionHandler extends ServerConnectionHandler {
         }
     }
 
-    private static String baseFilename(String filename) {
+    public static String baseFilename(String filename) {
         return filename.split(":")[0];
     }
 
